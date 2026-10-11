@@ -1,0 +1,21 @@
+name: rs_ui_steam
+description: Steam Big Picture component set for rs_ui.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.5
+  flutter: '>=3.47.0'
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  rs_theme:
+    path: ../rs_theme
+  rs_ui:
+    path: ../rs_ui
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

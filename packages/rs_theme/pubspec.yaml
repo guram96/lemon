@@ -1,0 +1,17 @@
+name: rs_theme
+description: Theme tokens and ThemeData builders for the Retro Steam client.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.5
+  flutter: '>=3.47.0'
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

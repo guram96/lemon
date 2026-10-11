@@ -1,0 +1,17 @@
+name: retro_steam_workspace
+description: Retro Steam monorepo workspace root.
+publish_to: none
+
+environment:
+  sdk: ^3.13.5
+
+workspace:
+  - apps/client
+  - apps/server
+  - packages/rs_core
+  - packages/rs_api_client
+  - packages/rs_theme
+  - packages/rs_ui
+  - packages/rs_ui_steam
+dev_dependencies:
+  lints: ^6.1.0
