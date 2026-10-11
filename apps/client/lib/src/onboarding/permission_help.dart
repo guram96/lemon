@@ -82,9 +82,7 @@ class PermissionHelp extends StatelessWidget {
                   Expanded(
                     child: Text(
                       step,
-                      style: text.bodyMedium?.copyWith(
-                        color: t.textSecondary,
-                      ),
+                      style: text.bodyMedium?.copyWith(color: t.textSecondary),
                     ),
                   ),
                 ],

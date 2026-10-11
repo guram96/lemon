@@ -43,22 +43,24 @@ class GamesQuery {
 // only show a spinner when there is no data yet, so live updates never
 // flash.
 
+/// Don't retry a failed fetch. Riverpod's default retry schedules timers,
+/// so a dead request never settles and the error the screen is showing
+/// gets replaced. A [libraryRevisionProvider] bump is the refetch.
+Duration? _noRetry(int retryCount, Object error) => null;
+
 /// Systems with at least one game, as the server orders them.
 final systemsProvider = FutureProvider<List<SystemSummary>>((ref) {
   ref.watch(libraryRevisionProvider);
   return ref.watch(apiClientProvider).systems();
-});
+}, retry: _noRetry);
 
 /// Games matching a [GamesQuery].
-final gamesProvider = FutureProvider.family<GamePage, GamesQuery>((
-  ref,
-  query,
-) {
+final gamesProvider = FutureProvider.family<GamePage, GamesQuery>((ref, query) {
   ref.watch(libraryRevisionProvider);
   return ref
       .watch(apiClientProvider)
       .games(system: query.systemId, query: query.query, sort: query.sort);
-});
+}, retry: _noRetry);
 
 /// How many games the "Recently added" shelf shows.
 const recentGamesLimit = 20;
@@ -73,13 +75,13 @@ final recentGamesProvider = FutureProvider<List<Game>>((ref) async {
     page.games,
     GameSort.recent,
   ).take(recentGamesLimit).toList(growable: false);
-});
+}, retry: _noRetry);
 
 /// One game, for the game page.
 final gameProvider = FutureProvider.autoDispose.family<Game, String>((ref, id) {
   ref.watch(libraryRevisionProvider);
   return ref.watch(apiClientProvider).game(id);
-});
+}, retry: _noRetry);
 
 /// Library folders of the server, for the empty-library help. Admin only;
 /// empty for regular users.
@@ -92,11 +94,14 @@ final libraryRootsProvider = FutureProvider.autoDispose<List<LibraryRoot>>((
   );
   if (!admin) return const [];
   return ref.watch(apiClientProvider).roots();
-});
+}, retry: _noRetry);
 
 /// Display name of a system: from [systems] when listed, otherwise the
 /// built-in catalog, otherwise the ID itself.
-String systemName(String systemId, [Iterable<SystemSummary> systems = const []]) {
+String systemName(
+  String systemId, [
+  Iterable<SystemSummary> systems = const [],
+]) {
   for (final s in systems) {
     if (s.systemId == systemId) return s.name;
   }
@@ -138,9 +143,8 @@ List<(String systemId, List<Game> games)> groupBySystem(
     for (final s in systems)
       if (groups.containsKey(s.systemId)) s.systemId,
   ];
-  final extra =
-      groups.keys.where((id) => !order.contains(id)).toList()
-        ..sort((a, b) => systemName(a).compareTo(systemName(b)));
+  final extra = groups.keys.where((id) => !order.contains(id)).toList()
+    ..sort((a, b) => systemName(a).compareTo(systemName(b)));
   return [
     for (final id in [...order, ...extra]) (id, groups[id]!),
   ];

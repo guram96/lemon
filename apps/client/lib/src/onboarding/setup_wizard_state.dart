@@ -130,7 +130,8 @@ class SetupWizardState {
   Map<String, int> get detectedSystems {
     final counts = <String, int>{};
     for (final root in roots) {
-      for (final s in root.result?.detectedSystems ?? const <DetectedSystem>[]) {
+      for (final s
+          in root.result?.detectedSystems ?? const <DetectedSystem>[]) {
         counts.update(
           s.systemId,
           (n) => n + s.fileCount,

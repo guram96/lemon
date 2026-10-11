@@ -210,10 +210,7 @@ class _FolderBrowserDialogState extends State<FolderBrowserDialog> {
         ],
       ),
       actions: [
-        RsButton(
-          label: 'Cancel',
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        RsButton(label: 'Cancel', onPressed: () => Navigator.of(context).pop()),
         RsButton(
           label: widget.selectLabel,
           icon: Icons.check_rounded,

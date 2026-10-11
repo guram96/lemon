@@ -145,7 +145,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - `NotificationCenter` (Notifier) + overlay host rendering `RsToast`s bottom-right; scan progress shows one persistent toast that updates, then a summary toast on done.
 - macOS: keep sandbox; add needed entitlements (network client already). Verify `flutter run -d macos` builds.
 
-### T7 — Onboarding UI: welcome → setup wizard → congratulations, login 🟦 (after T2, T6)
+### T7 — Onboarding UI: welcome → setup wizard → congratulations, login ✅ (after T2, T6)
 **Owns:** `apps/client/lib/src/onboarding/`, `apps/client/lib/src/auth/`, matching tests
 - `WelcomePage`: Big Picture welcome splash, server name, [Get started].
 - `SetupWizardPage` built on `RsWizardFrame`, steps: Admin account (username, password ≥ 8, confirm, inline validation) → Data folder (server-side folder browser dialog via `browse`, `checkPath`, shows writable/free space/existing data dir "will be adopted") → Game library (add/remove roots, detected systems + counts, read-only and permission warnings) → Review → Finishing (calls `setup`, progress, error recovery).
@@ -154,7 +154,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - `LoginPage`: username/password for returning sessions.
 - Fully usable with keyboard/d-pad only. Widget tests with a fake `RsApiClient`.
 
-### T8 — Home, library and game page 🟦 (after T2, T6)
+### T8 — Home, library and game page ✅ (after T2, T6)
 **Owns:** `apps/client/lib/src/home/`, `apps/client/lib/src/library/`, `apps/client/lib/src/game/`, matching tests
 - Providers: `systemsProvider`, `gamesProvider(filter)`, `gameProvider(id)`, all refetching on `libraryRevisionProvider`.
 - `HomePage` (Big Picture home): large background that cross-fades to the focused game's art, "Recently added" shelf of big capsules, then one `RsShelf` per system. Empty / scanning state ("Scanning your library — games appear as they're found") with live progress.
@@ -163,8 +163,9 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - Live updates when games are added during scanning, without losing focus.
 - Widget tests with fake providers.
 
-### T9 — Integration & E2E on macOS ⬜ (product owner, after all)
+### T9 — Integration & E2E on macOS ✅ (product owner, after all)
 - `dart tool/check.dart` green; resolve agent requests; run server + client on macOS; walk the full first-run flow with a sample ROM tree; fix gaps; update this board.
+- Verified: full check passed. A real server (temp config, sample NES + SNES ROMs) went unconfigured → setup → scan done, cataloging Super Mario Bros and Super Mario World. The macOS client built and launched against that server. No agent requests were open.
 
 ---
 
