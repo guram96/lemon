@@ -12,6 +12,7 @@ _ServerInfo _$ServerInfoFromJson(Map<String, dynamic> json) => _ServerInfo(
   version: json['version'] as String,
   apiVersion: (json['apiVersion'] as num).toInt(),
   setupState: $enumDecode(_$ServerSetupStateEnumMap, json['setupState']),
+  platform: json['platform'] as String,
 );
 
 Map<String, dynamic> _$ServerInfoToJson(_ServerInfo instance) =>
@@ -21,6 +22,7 @@ Map<String, dynamic> _$ServerInfoToJson(_ServerInfo instance) =>
       'version': instance.version,
       'apiVersion': instance.apiVersion,
       'setupState': _$ServerSetupStateEnumMap[instance.setupState]!,
+      'platform': instance.platform,
     };
 
 const _$ServerSetupStateEnumMap = {

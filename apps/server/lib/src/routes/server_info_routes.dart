@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:rs_core/rs_core.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -13,9 +15,10 @@ void mountServerInfoRoutes(Router router, ServerContext ctx) {
       name: ctx.name,
       version: serverVersion,
       apiVersion: ApiRoutes.version,
-      setupState: ctx.config.isConfigured
+      setupState: ctx.isConfigured
           ? ServerSetupState.ready
           : ServerSetupState.unconfigured,
+      platform: Platform.operatingSystem,
     );
     return jsonOk(info.toJson());
   });

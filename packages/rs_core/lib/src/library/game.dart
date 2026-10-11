@@ -36,6 +36,10 @@ abstract class Game with _$Game {
     required String rootId,
     required List<GameFile> files,
 
+    /// When the game was first added to the catalog. Drives the
+    /// "recently added" shelf.
+    required DateTime addedAt,
+
     /// Selected artwork per kind. Per-game overrides replace entries here.
     @Default({}) Map<ArtworkKind, Artwork> artwork,
     String? description,

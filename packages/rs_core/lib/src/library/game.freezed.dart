@@ -296,7 +296,9 @@ mixin _$Game {
 
  String get id;/// EmulationStation system ID, see [GameSystems].
  String get systemId; String get title;/// ID of the [LibraryRoot] the game lives in.
- String get rootId; List<GameFile> get files;/// Selected artwork per kind. Per-game overrides replace entries here.
+ String get rootId; List<GameFile> get files;/// When the game was first added to the catalog. Drives the
+/// "recently added" shelf.
+ DateTime get addedAt;/// Selected artwork per kind. Per-game overrides replace entries here.
  Map<ArtworkKind, Artwork> get artwork; String? get description; String? get developer; String? get publisher; int? get releaseYear;
 /// Create a copy of Game
 /// with the given fields replaced by the non-null parameter values.
@@ -311,20 +313,20 @@ $GameCopyWith<Game> get copyWith => _$GameCopyWithImpl<Game>(this as Game, _$ide
 @override
 bool operator ==(Object other) {
   final _this = this as Game;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Game&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.systemId, _this.systemId) || other.systemId == _this.systemId)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.rootId, _this.rootId) || other.rootId == _this.rootId)&&const DeepCollectionEquality().equals(other.files, _this.files)&&const DeepCollectionEquality().equals(other.artwork, _this.artwork)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.developer, _this.developer) || other.developer == _this.developer)&&(identical(other.publisher, _this.publisher) || other.publisher == _this.publisher)&&(identical(other.releaseYear, _this.releaseYear) || other.releaseYear == _this.releaseYear));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Game&&(identical(other.id, _this.id) || other.id == _this.id)&&(identical(other.systemId, _this.systemId) || other.systemId == _this.systemId)&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.rootId, _this.rootId) || other.rootId == _this.rootId)&&const DeepCollectionEquality().equals(other.files, _this.files)&&(identical(other.addedAt, _this.addedAt) || other.addedAt == _this.addedAt)&&const DeepCollectionEquality().equals(other.artwork, _this.artwork)&&(identical(other.description, _this.description) || other.description == _this.description)&&(identical(other.developer, _this.developer) || other.developer == _this.developer)&&(identical(other.publisher, _this.publisher) || other.publisher == _this.publisher)&&(identical(other.releaseYear, _this.releaseYear) || other.releaseYear == _this.releaseYear));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as Game;
-  return Object.hash(runtimeType,_this.id,_this.systemId,_this.title,_this.rootId,const DeepCollectionEquality().hash(_this.files),const DeepCollectionEquality().hash(_this.artwork),_this.description,_this.developer,_this.publisher,_this.releaseYear);
+  return Object.hash(runtimeType,_this.id,_this.systemId,_this.title,_this.rootId,const DeepCollectionEquality().hash(_this.files),_this.addedAt,const DeepCollectionEquality().hash(_this.artwork),_this.description,_this.developer,_this.publisher,_this.releaseYear);
 }
 
 @override
 String toString() {
   final _this = this as Game;
-  return 'Game(id: ${_this.id}, systemId: ${_this.systemId}, title: ${_this.title}, rootId: ${_this.rootId}, files: ${_this.files}, artwork: ${_this.artwork}, description: ${_this.description}, developer: ${_this.developer}, publisher: ${_this.publisher}, releaseYear: ${_this.releaseYear})';
+  return 'Game(id: ${_this.id}, systemId: ${_this.systemId}, title: ${_this.title}, rootId: ${_this.rootId}, files: ${_this.files}, addedAt: ${_this.addedAt}, artwork: ${_this.artwork}, description: ${_this.description}, developer: ${_this.developer}, publisher: ${_this.publisher}, releaseYear: ${_this.releaseYear})';
 }
 
 
@@ -335,7 +337,7 @@ abstract mixin class $GameCopyWith<$Res>  {
   factory $GameCopyWith(Game value, $Res Function(Game) _then) = _$GameCopyWithImpl;
 @useResult
 $Res call({
- String id, String systemId, String title, String rootId, List<GameFile> files, Map<ArtworkKind, Artwork> artwork, String? description, String? developer, String? publisher, int? releaseYear
+ String id, String systemId, String title, String rootId, List<GameFile> files, DateTime addedAt, Map<ArtworkKind, Artwork> artwork, String? description, String? developer, String? publisher, int? releaseYear
 });
 
 
@@ -352,14 +354,15 @@ class _$GameCopyWithImpl<$Res>
 
 /// Create a copy of Game
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? systemId = null,Object? title = null,Object? rootId = null,Object? files = null,Object? artwork = null,Object? description = freezed,Object? developer = freezed,Object? publisher = freezed,Object? releaseYear = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? systemId = null,Object? title = null,Object? rootId = null,Object? files = null,Object? addedAt = null,Object? artwork = null,Object? description = freezed,Object? developer = freezed,Object? publisher = freezed,Object? releaseYear = freezed,}) {
   return _then(Game(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,systemId: null == systemId ? _self.systemId : systemId // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,rootId: null == rootId ? _self.rootId : rootId // ignore: cast_nullable_to_non_nullable
 as String,files: null == files ? _self.files : files // ignore: cast_nullable_to_non_nullable
-as List<GameFile>,artwork: null == artwork ? _self.artwork : artwork // ignore: cast_nullable_to_non_nullable
+as List<GameFile>,addedAt: null == addedAt ? _self.addedAt : addedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,artwork: null == artwork ? _self.artwork : artwork // ignore: cast_nullable_to_non_nullable
 as Map<ArtworkKind, Artwork>,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,developer: freezed == developer ? _self.developer : developer // ignore: cast_nullable_to_non_nullable
 as String?,publisher: freezed == publisher ? _self.publisher : publisher // ignore: cast_nullable_to_non_nullable
@@ -449,10 +452,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String systemId,  String title,  String rootId,  List<GameFile> files,  Map<ArtworkKind, Artwork> artwork,  String? description,  String? developer,  String? publisher,  int? releaseYear)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String systemId,  String title,  String rootId,  List<GameFile> files,  DateTime addedAt,  Map<ArtworkKind, Artwork> artwork,  String? description,  String? developer,  String? publisher,  int? releaseYear)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Game() when $default != null:
-return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_that.artwork,_that.description,_that.developer,_that.publisher,_that.releaseYear);case _:
+return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_that.addedAt,_that.artwork,_that.description,_that.developer,_that.publisher,_that.releaseYear);case _:
   return orElse();
 
 }
@@ -470,10 +473,10 @@ return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String systemId,  String title,  String rootId,  List<GameFile> files,  Map<ArtworkKind, Artwork> artwork,  String? description,  String? developer,  String? publisher,  int? releaseYear)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String systemId,  String title,  String rootId,  List<GameFile> files,  DateTime addedAt,  Map<ArtworkKind, Artwork> artwork,  String? description,  String? developer,  String? publisher,  int? releaseYear)  $default,) {final _that = this;
 switch (_that) {
 case _Game():
-return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_that.artwork,_that.description,_that.developer,_that.publisher,_that.releaseYear);case _:
+return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_that.addedAt,_that.artwork,_that.description,_that.developer,_that.publisher,_that.releaseYear);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -490,10 +493,10 @@ return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String systemId,  String title,  String rootId,  List<GameFile> files,  Map<ArtworkKind, Artwork> artwork,  String? description,  String? developer,  String? publisher,  int? releaseYear)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String systemId,  String title,  String rootId,  List<GameFile> files,  DateTime addedAt,  Map<ArtworkKind, Artwork> artwork,  String? description,  String? developer,  String? publisher,  int? releaseYear)?  $default,) {final _that = this;
 switch (_that) {
 case _Game() when $default != null:
-return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_that.artwork,_that.description,_that.developer,_that.publisher,_that.releaseYear);case _:
+return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_that.addedAt,_that.artwork,_that.description,_that.developer,_that.publisher,_that.releaseYear);case _:
   return null;
 
 }
@@ -505,7 +508,7 @@ return $default(_that.id,_that.systemId,_that.title,_that.rootId,_that.files,_th
 @JsonSerializable()
 
 class _Game extends Game {
-  const _Game({required this.id, required this.systemId, required this.title, required this.rootId, required  List<GameFile> files,  Map<ArtworkKind, Artwork> artwork = const {}, this.description, this.developer, this.publisher, this.releaseYear}): _files = files,_artwork = artwork,super._();
+  const _Game({required this.id, required this.systemId, required this.title, required this.rootId, required  List<GameFile> files, required this.addedAt,  Map<ArtworkKind, Artwork> artwork = const {}, this.description, this.developer, this.publisher, this.releaseYear}): _files = files,_artwork = artwork,super._();
   factory _Game.fromJson(Map<String, dynamic> json) => _$GameFromJson(json);
 
 @override final  String id;
@@ -521,6 +524,9 @@ class _Game extends Game {
   return EqualUnmodifiableListView(_files);
 }
 
+/// When the game was first added to the catalog. Drives the
+/// "recently added" shelf.
+@override final  DateTime addedAt;
 /// Selected artwork per kind. Per-game overrides replace entries here.
  final  Map<ArtworkKind, Artwork> _artwork;
 /// Selected artwork per kind. Per-game overrides replace entries here.
@@ -548,18 +554,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Game&&(identical(other.id, id) || other.id == id)&&(identical(other.systemId, systemId) || other.systemId == systemId)&&(identical(other.title, title) || other.title == title)&&(identical(other.rootId, rootId) || other.rootId == rootId)&&const DeepCollectionEquality().equals(other.files, _files)&&const DeepCollectionEquality().equals(other.artwork, _artwork)&&(identical(other.description, description) || other.description == description)&&(identical(other.developer, developer) || other.developer == developer)&&(identical(other.publisher, publisher) || other.publisher == publisher)&&(identical(other.releaseYear, releaseYear) || other.releaseYear == releaseYear));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _Game&&(identical(other.id, id) || other.id == id)&&(identical(other.systemId, systemId) || other.systemId == systemId)&&(identical(other.title, title) || other.title == title)&&(identical(other.rootId, rootId) || other.rootId == rootId)&&const DeepCollectionEquality().equals(other.files, _files)&&(identical(other.addedAt, addedAt) || other.addedAt == addedAt)&&const DeepCollectionEquality().equals(other.artwork, _artwork)&&(identical(other.description, description) || other.description == description)&&(identical(other.developer, developer) || other.developer == developer)&&(identical(other.publisher, publisher) || other.publisher == publisher)&&(identical(other.releaseYear, releaseYear) || other.releaseYear == releaseYear));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,id,systemId,title,rootId,const DeepCollectionEquality().hash(_files),const DeepCollectionEquality().hash(_artwork),description,developer,publisher,releaseYear);
+    return Object.hash(runtimeType,id,systemId,title,rootId,const DeepCollectionEquality().hash(_files),addedAt,const DeepCollectionEquality().hash(_artwork),description,developer,publisher,releaseYear);
 }
 
 @override
 String toString() {
-    return 'Game(id: $id, systemId: $systemId, title: $title, rootId: $rootId, files: $files, artwork: $artwork, description: $description, developer: $developer, publisher: $publisher, releaseYear: $releaseYear)';
+    return 'Game(id: $id, systemId: $systemId, title: $title, rootId: $rootId, files: $files, addedAt: $addedAt, artwork: $artwork, description: $description, developer: $developer, publisher: $publisher, releaseYear: $releaseYear)';
 }
 
 
@@ -570,7 +576,7 @@ abstract mixin class _$GameCopyWith<$Res> implements $GameCopyWith<$Res> {
   factory _$GameCopyWith(_Game value, $Res Function(_Game) _then) = __$GameCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String systemId, String title, String rootId, List<GameFile> files, Map<ArtworkKind, Artwork> artwork, String? description, String? developer, String? publisher, int? releaseYear
+ String id, String systemId, String title, String rootId, List<GameFile> files, DateTime addedAt, Map<ArtworkKind, Artwork> artwork, String? description, String? developer, String? publisher, int? releaseYear
 });
 
 
@@ -587,14 +593,15 @@ class __$GameCopyWithImpl<$Res>
 
 /// Create a copy of Game
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? systemId = null,Object? title = null,Object? rootId = null,Object? files = null,Object? artwork = null,Object? description = freezed,Object? developer = freezed,Object? publisher = freezed,Object? releaseYear = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? systemId = null,Object? title = null,Object? rootId = null,Object? files = null,Object? addedAt = null,Object? artwork = null,Object? description = freezed,Object? developer = freezed,Object? publisher = freezed,Object? releaseYear = freezed,}) {
   return _then(_Game(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,systemId: null == systemId ? _self.systemId : systemId // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,rootId: null == rootId ? _self.rootId : rootId // ignore: cast_nullable_to_non_nullable
 as String,files: null == files ? _self._files : files // ignore: cast_nullable_to_non_nullable
-as List<GameFile>,artwork: null == artwork ? _self._artwork : artwork // ignore: cast_nullable_to_non_nullable
+as List<GameFile>,addedAt: null == addedAt ? _self.addedAt : addedAt // ignore: cast_nullable_to_non_nullable
+as DateTime,artwork: null == artwork ? _self._artwork : artwork // ignore: cast_nullable_to_non_nullable
 as Map<ArtworkKind, Artwork>,description: freezed == description ? _self.description : description // ignore: cast_nullable_to_non_nullable
 as String?,developer: freezed == developer ? _self.developer : developer // ignore: cast_nullable_to_non_nullable
 as String?,publisher: freezed == publisher ? _self.publisher : publisher // ignore: cast_nullable_to_non_nullable

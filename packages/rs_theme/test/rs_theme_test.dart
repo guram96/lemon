@@ -40,4 +40,28 @@ void main() {
     expect(dark.lerp(light, 0).background, dark.background);
     expect(dark.lerp(light, 1).background, light.background);
   });
+
+  test('breakpoints classify widths from phone to TV', () {
+    const b = RsBreakpoints();
+    expect(b.classify(360), RsLayoutClass.compact);
+    expect(b.classify(800), RsLayoutClass.medium);
+    expect(b.classify(1440), RsLayoutClass.expanded);
+    expect(b.classify(2560), RsLayoutClass.large);
+    expect(b.scaleFor(RsLayoutClass.expanded), 1);
+    expect(b.scaleFor(RsLayoutClass.large), greaterThan(1));
+  });
+
+  test('light and dark define every token and lerp them', () {
+    final dark = RsThemeBuilder.dark(const RsThemeSettings())
+        .extension<RsTokens>()!;
+    final light = RsThemeBuilder.light(const RsThemeSettings())
+        .extension<RsTokens>()!;
+    expect(dark.barBackground, isNot(light.barBackground));
+    expect(dark.scrim, isNot(light.scrim));
+    final mid = dark.lerp(light, 1);
+    expect(mid.glyphs.onFill, light.glyphs.onFill);
+    expect(mid.art.lightness, light.art.lightness);
+    expect(mid.sizes.capsuleWidth, light.sizes.capsuleWidth);
+    expect(dark.copyWith(track: light.track).track, light.track);
+  });
 }

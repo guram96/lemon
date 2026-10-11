@@ -28,6 +28,10 @@ abstract class ServerInfo with _$ServerInfo {
     /// API version, see [ApiRoutes.version].
     required int apiVersion,
     required ServerSetupState setupState,
+
+    /// Host operating system: `macos`, `windows` or `linux`. The setup UI
+    /// uses it to show OS-specific permission help.
+    required String platform,
   }) = _ServerInfo;
 
   factory ServerInfo.fromJson(Map<String, Object?> json) =>

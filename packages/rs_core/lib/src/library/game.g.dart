@@ -26,6 +26,7 @@ _Game _$GameFromJson(Map<String, dynamic> json) => _Game(
   files: (json['files'] as List<dynamic>)
       .map((e) => GameFile.fromJson(e as Map<String, dynamic>))
       .toList(),
+  addedAt: DateTime.parse(json['addedAt'] as String),
   artwork:
       (json['artwork'] as Map<String, dynamic>?)?.map(
         (k, e) => MapEntry(
@@ -46,6 +47,7 @@ Map<String, dynamic> _$GameToJson(_Game instance) => <String, dynamic>{
   'title': instance.title,
   'rootId': instance.rootId,
   'files': instance.files.map((e) => e.toJson()).toList(),
+  'addedAt': instance.addedAt.toIso8601String(),
   'artwork': instance.artwork.map(
     (k, e) => MapEntry(_$ArtworkKindEnumMap[k]!, e.toJson()),
   ),

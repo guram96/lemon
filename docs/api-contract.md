@@ -72,13 +72,15 @@ enum PathKind { dataDir, libraryRoot }
 PathCheckRequest { String path; PathKind kind }
 PathCheckResult {
   String path;            // normalized absolute
+  PathKind kind;          // echoed from the request
   bool exists; bool readable; bool writable;
   bool permissionDenied;  // OS refused access (macOS TCC, ACLs) → show how to grant
   String? existingMarkerId;  // .retrosteam/root.json found (adopt existing root/data dir)
   List<DetectedSystem> detectedSystems;  // libraryRoot only
   int? freeBytes;
   List<String> warnings;  // e.g. "read-only filesystem", "not empty"
-  bool get ok;            // dataDir: exists-or-creatable && writable; libraryRoot: readable
+  bool get ok;            // dataDir: writable && !permissionDenied (server reports a creatable
+                          //   missing dir as writable); libraryRoot: exists && readable && !permissionDenied
 }
 DetectedSystem { String systemId; int fileCount }
 
@@ -138,3 +140,28 @@ startScan(); scanStatus() → ScanStatus
 Uri artworkUri(String artworkId, {int? width})   // for Image.network; token passed as header in M2
 Stream<ServerEvent> events()   // web_socket_channel (web-safe), reconnects with backoff
 ```
+
+## Implementation notes (T1)
+
+- Extras: `ApiQueryParams`, `GameSort`, `ApiHeaders.bearerPrefix`, `ApiRoutes.artworkBase`,
+  `ApiErrorCodes.unreachable`, `RsApiClient.eventsUri()`.
+- `GET` and `POST` `/library/scan` share one path.
+- `RsApiClient` never stores tokens returned by `setup`/`joinLocal`/`login`: the app sets them.
+- Server sends events as `jsonEncode(event.toJson())`. Unknown `type`s are skipped by the client.
+- Event classes: `ScanProgressEvent`, `LibraryChangedEvent`, `RootStatusChangedEvent`.
+
+## Implementation notes (T5)
+
+- Unconfigured server: every route except `GET /server`, setup routes and `POST /devices/local`
+  answers **409 `setup_required`**.
+- Loopback-only routes also reject requests whose `Origin` isn't localhost/127.0.0.1/::1
+  (`403 loopback_only`), so a random web page can't run setup.
+- `/events` closes with **4401** on bad/revoked tokens or logout (1000 on shutdown). Clients must
+  stop reconnecting and drop the session on 4401.
+- Connecting to `/events` during a scan sends the current progress immediately. Events emitted before
+  the socket connects are not replayed: fetch `/library/*` after connecting.
+- `scanProgress` ≤ every 250 ms, last one `done`/`failed`. `libraryChanged` in batches of 25 games / 1 s.
+- `GET /library/games` also takes `offset`, `limit`. `POST /library/scan` returns `ScanStatus` (202).
+- Sessions are bound to the device that created them.
+- Setup retry: if the data dir already has an admin, setup proceeds only with the same credentials.
+- Run: `cd apps/server && dart run bin/rs_server.dart -v [--config f] [--port p] [--bind a]`.

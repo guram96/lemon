@@ -25,4 +25,14 @@ abstract final class ApiErrorCodes {
   static const forbidden = 'forbidden';
   static const badRequest = 'bad_request';
   static const internal = 'internal';
+  static const setupRequired = 'setup_required';
+  static const alreadyConfigured = 'already_configured';
+  static const loopbackOnly = 'loopback_only';
+  static const invalidCredentials = 'invalid_credentials';
+  static const rateLimited = 'rate_limited';
+  static const pathInvalid = 'path_invalid';
+  static const conflict = 'conflict';
+
+  /// Client-side only: the server could not be reached.
+  static const unreachable = 'unreachable';
 }

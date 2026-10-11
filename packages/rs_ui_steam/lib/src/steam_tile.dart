@@ -1,6 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
+
+import 'steam_style.dart';
 
 /// Big Picture library capsule: grows and gets a bright ring and glow when focused.
 class SteamTile extends StatelessWidget {
@@ -33,24 +35,12 @@ class SteamTile extends StatelessWidget {
               border: Border.all(
                 color: state.highlighted
                     ? t.focusRing
-                    : const Color(0x00000000),
-                width: 2,
+                    : t.focusRing.withValues(alpha: 0),
+                width: t.sizes.focusRingWidth,
               ),
               boxShadow: state.highlighted
-                  ? [
-                      BoxShadow(
-                        color: t.focusRing.withValues(alpha: 0.3),
-                        blurRadius: 24,
-                        spreadRadius: 1,
-                      ),
-                    ]
-                  : const [
-                      BoxShadow(
-                        color: Color(0x66000000),
-                        blurRadius: 8,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
+                  ? SteamStyle.focusGlow(t)
+                  : SteamStyle.restShadow(t),
             ),
             child: ClipRRect(
               borderRadius: radius,
@@ -101,11 +91,8 @@ class _TitleFallback extends StatelessWidget {
       textAlign: TextAlign.center,
       maxLines: 4,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: tokens.textSecondary,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-      ),
+      style: SteamStyle.text(context).titleSmall
+          ?.copyWith(color: tokens.textSecondary),
     ),
   );
 }

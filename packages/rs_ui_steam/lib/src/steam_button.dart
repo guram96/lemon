@@ -1,6 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
+
+import 'steam_style.dart';
 
 /// Big Picture button: flat dark fill at rest, bright highlight when focused.
 /// Primary buttons use the green "Play" gradient.
@@ -12,6 +14,7 @@ class SteamButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = context.rsTokens;
+    final text = SteamStyle.text(context);
     return RsFocusable(
       autofocus: config.autofocus,
       focusNode: config.focusNode,
@@ -21,29 +24,36 @@ class SteamButton extends StatelessWidget {
         final (fill, fg) = _colors(t, state);
         final content = Row(
           mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (config.icon != null) ...[
-              Icon(config.icon, size: 20, color: fg),
+              Icon(config.icon, size: t.sizes.icon, color: fg),
               SizedBox(width: t.spacing.sm),
             ],
-            Text(
-              config.label,
-              style: TextStyle(
-                color: fg,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.3,
+            Flexible(
+              child: AnimatedDefaultTextStyle(
+                duration: t.motion.focus,
+                curve: t.motion.curve,
+                style: (text.labelLarge ?? const TextStyle()).copyWith(
+                  color: fg,
+                ),
+                child: Text(
+                  config.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ),
           ],
         );
         return AnimatedScale(
-          scale: state.pressed ? 0.97 : 1,
-          duration: t.motion.focus,
+          scale: state.pressed ? t.motion.pressScale : 1,
+          duration: t.motion.fast,
           curve: t.motion.curve,
           child: AnimatedContainer(
             duration: t.motion.focus,
             curve: t.motion.curve,
+            constraints: BoxConstraints(minHeight: t.sizes.tabHeight),
             padding: EdgeInsets.symmetric(
               horizontal: t.spacing.lg,
               vertical: t.spacing.sm + t.spacing.xs,
@@ -53,12 +63,7 @@ class SteamButton extends StatelessWidget {
               gradient: fill is Gradient ? fill : null,
               borderRadius: BorderRadius.circular(t.radii.sm),
               boxShadow: state.highlighted
-                  ? [
-                      BoxShadow(
-                        color: t.focusRing.withValues(alpha: 0.25),
-                        blurRadius: 16,
-                      ),
-                    ]
+                  ? SteamStyle.focusGlow(t, strength: 0.6)
                   : null,
             ),
             child: Opacity(opacity: state.enabled ? 1 : 0.4, child: content),
@@ -77,8 +82,8 @@ class SteamButton extends StatelessWidget {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: hi
-              ? [Color.lerp(t.play, const Color(0xFFFFFFFF), 0.2)!, t.play]
-              : [t.play, Color.lerp(t.play, const Color(0xFF000000), 0.25)!],
+              ? [Color.lerp(t.play, t.onPlay, 0.25)!, t.play]
+              : [t.play, Color.lerp(t.play, t.art.shade, 0.25)!],
         ),
         t.onPlay,
       ),

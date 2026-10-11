@@ -69,7 +69,7 @@ Wave 3:                   T7 onboarding UI (needs T2,T6)   T8 home & library UI 
 Wave 4:                   T9 integration + E2E on macOS (product owner)
 ```
 
-### T1 — Contract: rs_core DTOs + rs_api_client 🟦
+### T1 — Contract: rs_core DTOs + rs_api_client ✅
 **Owns:** `packages/rs_core/`, `packages/rs_api_client/`
 - Implement everything in `docs/api-contract.md`: routes, headers, error codes,
   DTOs (freezed/json_serializable, run build_runner), `ServerInfo.platform`,
@@ -82,7 +82,7 @@ Wave 4:                   T9 integration + E2E on macOS (product owner)
   allowed edit outside your packages is `apps/server/lib/src/routes/server_info_routes.dart`
   (fill `platform` from `Platform.operatingSystem`).
 
-### T2 — Big Picture UI kit: rs_ui + rs_ui_steam 🟦
+### T2 — Big Picture UI kit: rs_ui + rs_ui_steam ✅
 **Owns:** `packages/rs_ui/`, `packages/rs_ui_steam/`, `packages/rs_theme/` (token additions only)
 Abstract component in `rs_ui` + Steam implementation + widget test for each
 (see "Adding a component" in CLAUDE.md). Faithful to Steam Big Picture (2023+ / Deck UI):
@@ -105,7 +105,7 @@ capsules, Motiva-Sans-like typography (use a bundled/Google-free fallback, no ne
 - Add any tokens you need to `RsTokens` (both light and dark).
 - Add an exported `SteamGallery` widget (`rs_ui_steam/lib/src/gallery.dart`) that shows every component, so the product owner can preview the look.
 
-### T3 — Server storage & security foundation 🟦
+### T3 — Server storage & security foundation ✅
 **Owns:** `apps/server/lib/src/storage/`, `apps/server/lib/src/db/`, `apps/server/lib/src/security/`, `apps/server/lib/src/fs/`, matching `apps/server/test/<same>/`, `apps/server/pubspec.yaml` (add deps)
 - **Markers:** `<dir>/.retrosteam/root.json` `{id, kind: data|library, label, createdAt}`; create/read; read-only roots can't get a marker → identify by stored id + last path, status `readOnly`.
 - **Data dir:** layout (`retrosteam.db`, `artwork/`, `cache/`, `tmp/`), create/adopt.
@@ -114,7 +114,7 @@ capsules, Motiva-Sans-like typography (use a bundled/Google-free fallback, no ne
 - **fs:** `PathGuard` (root id + relative → safe absolute; rejects `..`, absolute, drive letters, reserved Windows names, symlink escape), `PathProbe` (exists/readable/writable/permissionDenied/read-only FS/free bytes/marker id/detected ES systems with file counts), `DirectoryBrowser` (list dirs; shortcuts: home, Desktop, Documents, `/Volumes/*`, drive letters, `/media`, `/mnt`). macOS: detect TCC denial (EPERM / "Operation not permitted") as `permissionDenied`.
 - Tests for all of it with temp dirs. No HTTP code.
 
-### T4 — ROM scanner engine 🟦
+### T4 — ROM scanner engine ✅
 **Owns:** `apps/server/lib/src/scanner/`, `apps/server/test/scanner/`
 Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Stream<ScanProgress>` + final `List<ScannedGame>`.
 - Walk `<root>/<esSystemId>/` for systems in `GameSystems.all`; accept only matching extensions; skip hidden files, `.retrosteam`, and ES media subfolders (`media`, `images`, `videos`, `manuals`, `downloaded_media`).
@@ -125,7 +125,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - Stable game identity for diffing: (rootId, systemId, primary file rel path).
 - Tests with generated fixture trees in temp dirs.
 
-### T5 — Server API: setup, auth, library, scan, events ⬜ (after T1, T3, T4)
+### T5 — Server API: setup, auth, library, scan, events ✅ (after T1, T3, T4)
 **Owns:** `apps/server/lib/src/routes/`, `apps/server/lib/src/http/`, `apps/server/lib/src/services/`, `apps/server/lib/src/server_context.dart`, `apps/server/lib/rs_server.dart`, `apps/server/bin/`, `apps/server/test/` (except T3/T4 subfolders)
 - Auth middleware (device + session, admin guard), loopback check from `shelf.io.connection_info`.
 - Every route in `docs/api-contract.md`. `POST /setup`: validate paths, create data dir + markers, open DB, create admin, register roots, save bootstrap config (`dataDir`), join the requesting device, create session, **start the initial scan**, return `AuthResult`.
@@ -134,7 +134,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - Startup: if configured, open DB, refresh root status (offline/readOnly), serve.
 - Integration tests: full setup → login → scan → list games over real HTTP + WebSocket against temp dirs.
 
-### T6 — Client shell: connection, session, events, notifications ⬜ (after T1, T2)
+### T6 — Client shell: connection, session, events, notifications 🟦 (after T1, T2)
 **Owns:** `apps/client/lib/main.dart`, `apps/client/lib/src/{app,routing,platform,connection,session,events,notifications,storage}/`, `apps/client/pubspec.yaml`, `apps/client/test/` (shell tests), `apps/client/macos/` entitlements
 - `CredentialStore` (shared_preferences now, interface for secure storage later): server base URI, server id, device token, session token, user.
 - `connectionProvider`: probe `http://127.0.0.1:47320` at startup → states `searching | unreachable | unconfigured | ready`. Unreachable → a simple "Server not found" page with Retry and manual address field.

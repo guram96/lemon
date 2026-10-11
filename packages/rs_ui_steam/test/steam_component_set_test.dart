@@ -1,25 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
 import 'package:rs_ui_steam/rs_ui_steam.dart';
 
-Widget _app(Widget child, {ThemeMode mode = ThemeMode.dark}) => MaterialApp(
-  theme: RsThemeBuilder.light(const RsThemeSettings()),
-  darkTheme: RsThemeBuilder.dark(const RsThemeSettings()),
-  themeMode: mode,
-  home: RsComponents(
-    set: const SteamComponentSet(),
-    child: RsInputScope(child: Center(child: child)),
-  ),
-);
+import 'helpers.dart';
 
 void main() {
   for (final mode in [ThemeMode.dark, ThemeMode.light]) {
-    testWidgets('renders every component in ${mode.name} mode', (tester) async {
+    testWidgets('renders the basic controls in ${mode.name} mode', (
+      tester,
+    ) async {
       await tester.pumpWidget(
-        _app(
+        steamApp(
           mode: mode,
+          center: true,
           SizedBox(
             width: 600,
             child: Column(
@@ -63,7 +57,8 @@ void main() {
   testWidgets('toggle flips its value when activated', (tester) async {
     bool? changed;
     await tester.pumpWidget(
-      _app(
+      steamApp(
+        center: true,
         SizedBox(
           width: 400,
           child: RsToggle(
@@ -76,5 +71,68 @@ void main() {
     );
     await tester.tap(find.text('Wi-Fi'));
     expect(changed, isTrue);
+  });
+
+  group('SteamGallery', () {
+    for (final (name, size) in [
+      ('phone', phone),
+      ('desktop', desktop),
+      ('4K TV', tv4k),
+    ]) {
+      for (final dark in [true, false]) {
+        testWidgets('renders every component on $name, dark: $dark', (
+          tester,
+        ) async {
+          setScreen(tester, size);
+          await tester.pumpWidget(
+            MaterialApp(home: SteamGallery(initialDark: dark)),
+          );
+          await tester.pump(const Duration(milliseconds: 500));
+          expect(tester.takeException(), isNull);
+          expect(find.text('Chrono Trigger'), findsWidgets);
+
+          // Scroll through the whole page so every section builds.
+          for (var i = 0; i < 30; i++) {
+            await tester.drag(
+              find.byType(Scrollable).first,
+              const Offset(0, -400),
+            );
+            await tester.pump(const Duration(milliseconds: 50));
+          }
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
+    testWidgets('toasts can be added and dismissed', (tester) async {
+      setScreen(tester, desktop);
+      await tester.pumpWidget(const MaterialApp(home: SteamGallery()));
+      await tester.pump();
+      // Install button (autofocused) adds a progress toast.
+      await tester.tap(find.text('Install'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.text('Scanning library…'), findsOneWidget);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(RsToastStack),
+          matching: find.byIcon(Icons.close_rounded),
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pump();
+      expect(find.text('Scanning library…'), findsNothing);
+    });
+
+    testWidgets('hint bar switches the theme', (tester) async {
+      setScreen(tester, desktop);
+      await tester.pumpWidget(const MaterialApp(home: SteamGallery()));
+      await tester.pump();
+      await tester.tap(find.text('Light mode'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text('Dark mode'), findsWidgets);
+      expect(tester.takeException(), isNull);
+    });
   });
 }
