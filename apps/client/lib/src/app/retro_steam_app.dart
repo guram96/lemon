@@ -33,7 +33,11 @@ class RetroSteamApp extends ConsumerWidget {
             actions: {
               RsBackIntent: CallbackAction<RsBackIntent>(
                 onInvoke: (_) {
-                  if (router.canPop()) router.pop();
+                  if (router.canPop()) {
+                    router.pop();
+                  } else if (router.state.uri.path == AppRoutes.settings) {
+                    router.go(AppRoutes.home);
+                  }
                   return null;
                 },
               ),

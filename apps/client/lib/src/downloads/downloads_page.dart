@@ -4,13 +4,10 @@ import 'package:rs_core/rs_core.dart';
 import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
 
-import '../connection/connection_provider.dart';
 import '../install/download_queue.dart';
 import '../install/install_models.dart';
-import '../install/install_store.dart';
 import '../library/format.dart';
 import '../library/library_providers.dart';
-import '../onboarding/folder_browser_dialog.dart';
 
 /// `Queued`, `Downloading`, `Paused`, `Installed`, `Failed`.
 String installPhaseLabel(InstallPhase phase) {
@@ -18,7 +15,7 @@ String installPhaseLabel(InstallPhase phase) {
   return '${name[0].toUpperCase()}${name.substring(1)}';
 }
 
-/// Download queue and the install folder. The shell draws the top bar.
+/// Download queue. Install folders live in Settings. The shell draws the top bar.
 class DownloadsPage extends ConsumerWidget {
   const DownloadsPage({super.key});
 
@@ -28,45 +25,30 @@ class DownloadsPage extends ConsumerWidget {
     final text = Theme.of(context).textTheme;
     final records = ref.watch(downloadQueueProvider);
     final games = ref.watch(gamesProvider(GamesQuery.all)).value?.games;
-    final folder = ref.watch(destinationsProvider).value?.globalFolder;
     final gutter = context.rsPageGutter;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.fromLTRB(
-            gutter,
-            t.spacing.lg,
-            gutter,
-            t.spacing.md,
+    if (records.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: gutter),
+          child: Text(
+            'No games are installed or downloading.',
+            textAlign: TextAlign.center,
+            style: text.bodyLarge?.copyWith(color: t.textSecondary),
           ),
-          child: _FolderPicker(folder: folder),
         ),
-        Expanded(
-          child: records.isEmpty
-              ? Center(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: gutter),
-                    child: Text(
-                      'No games are installed or downloading.',
-                      textAlign: TextAlign.center,
-                      style: text.bodyLarge?.copyWith(color: t.textSecondary),
-                    ),
-                  ),
-                )
-              : ListView(
-                  padding: EdgeInsets.only(bottom: t.spacing.xxl),
-                  children: [
-                    for (final record in records)
-                      _DownloadRow(
-                        key: ValueKey('${record.serverId}/${record.gameId}'),
-                        record: record,
-                        title: _titleFor(record, games),
-                      ),
-                  ],
-                ),
-        ),
+      );
+    }
+
+    return ListView(
+      padding: EdgeInsets.only(top: t.spacing.lg, bottom: t.spacing.xxl),
+      children: [
+        for (final record in records)
+          _DownloadRow(
+            key: ValueKey('${record.serverId}/${record.gameId}'),
+            record: record,
+            title: _titleFor(record, games),
+          ),
       ],
     );
   }
@@ -78,57 +60,6 @@ String _titleFor(InstallRecord record, List<Game>? games) {
     if (game.id == record.gameId) return game.title;
   }
   return record.gameId;
-}
-
-class _FolderPicker extends ConsumerWidget {
-  const _FolderPicker({required this.folder});
-
-  final String? folder;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.rsTokens;
-    final text = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Install folder',
-          style: text.titleMedium?.copyWith(color: t.textPrimary),
-        ),
-        SizedBox(height: t.spacing.xs),
-        Text(
-          folder ?? 'No folder selected',
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: text.bodyLarge?.copyWith(color: t.textSecondary),
-        ),
-        SizedBox(height: t.spacing.md),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: RsButton(
-            label: folder == null ? 'Choose folder' : 'Change folder',
-            icon: Icons.folder_open_rounded,
-            autofocus: true,
-            onPressed: () => _pickFolder(context, ref),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Future<void> _pickFolder(BuildContext context, WidgetRef ref) async {
-    final current = ref.read(destinationsProvider).value?.globalFolder;
-    final path = await showFolderBrowser(
-      context: context,
-      api: ref.read(apiClientProvider),
-      title: 'Install folder',
-      initialPath: current,
-      selectLabel: 'Use this folder',
-    );
-    if (!context.mounted || path == null) return;
-    await ref.read(destinationsProvider.notifier).setGlobalFolder(path);
-  }
 }
 
 class _DownloadRow extends ConsumerWidget {

@@ -407,10 +407,7 @@ void main() {
         );
         expect(install.variant, RsButtonVariant.primary);
         expect(install.onPressed, isNull);
-        expect(
-          find.text('Pick a folder on the Downloads page.'),
-          findsOneWidget,
-        );
+        expect(find.text('Pick a folder in Settings.'), findsOneWidget);
       } finally {
         await unmount(tester);
       }
@@ -430,7 +427,7 @@ void main() {
 
       expect(find.text('Chrono Trigger'), findsWidgets);
       expect(find.widgetWithText(RsButton, 'Install'), findsNothing);
-      expect(find.text('Pick a folder on the Downloads page.'), findsNothing);
+      expect(find.text('Pick a folder in Settings.'), findsNothing);
     } finally {
       await unmount(tester);
     }

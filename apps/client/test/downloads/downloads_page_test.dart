@@ -251,7 +251,6 @@ void main() {
       expect(find.byType(DownloadsPage), findsOneWidget);
       expect(find.text('Chrono Trigger'), findsOneWidget);
       expect(find.text('Downloading'), findsOneWidget);
-      expect(find.text('No folder selected'), findsOneWidget);
       final bar = tester.widget<RsProgressBar>(find.byType(RsProgressBar));
       expect(bar.value, 0.5);
       expect(bar.trailing, '512 B / 1 KB');
@@ -325,7 +324,7 @@ void main() {
     }
   });
 
-  testWidgets('an empty queue shows the install folder', (tester) async {
+  testWidgets('an empty queue does not show an install folder', (tester) async {
     try {
       final container = await pump(
         tester,
@@ -334,8 +333,10 @@ void main() {
       await go(container, AppRoutes.downloads);
       await tester.pumpAndSettle();
 
-      expect(find.text('/roms/games'), findsOneWidget);
-      expect(find.widgetWithText(RsButton, 'Change folder'), findsOneWidget);
+      expect(find.text('/roms/games'), findsNothing);
+      expect(find.text('Install folder'), findsNothing);
+      expect(find.widgetWithText(RsButton, 'Change folder'), findsNothing);
+      expect(find.widgetWithText(RsButton, 'Choose folder'), findsNothing);
       expect(
         find.text('No games are installed or downloading.'),
         findsOneWidget,
@@ -425,7 +426,7 @@ void main() {
         find.widgetWithText(RsButton, 'Install'),
       );
       expect(install.onPressed, isNotNull);
-      expect(find.text('Pick a folder on the Downloads page.'), findsNothing);
+      expect(find.text('Pick a folder in Settings.'), findsNothing);
 
       await tap(tester, find.widgetWithText(RsButton, 'Install'));
       expect(log.enqueued, ['chrono']);

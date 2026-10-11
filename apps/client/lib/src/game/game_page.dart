@@ -246,7 +246,7 @@ class _InstallRowState extends ConsumerState<_InstallRow> {
           variant: RsButtonVariant.primary,
           onPressed: null,
         );
-        note = 'Pick a folder on the Downloads page.';
+        note = 'Pick a folder in Settings.';
       } else {
         button = RsButton(
           label: 'Install',

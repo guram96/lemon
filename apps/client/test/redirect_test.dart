@@ -65,6 +65,11 @@ void main() {
       r(ConnectionStatus.ready, AppRoutes.game('g1'), loggedIn: true),
       isNull,
     );
+    expect(
+      r(ConnectionStatus.ready, AppRoutes.settings, loggedIn: true),
+      isNull,
+    );
+    expect(r(ConnectionStatus.ready, AppRoutes.settings), AppRoutes.login);
   });
 
   test('finishing setup moves to /setup/done', () {

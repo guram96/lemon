@@ -15,6 +15,7 @@ import '../onboarding/setup_done_page.dart';
 import '../onboarding/setup_wizard_page.dart';
 import '../onboarding/welcome_page.dart';
 import '../session/session_provider.dart';
+import '../settings/settings_page.dart';
 import 'app_routes.dart';
 import 'app_shell.dart';
 import 'redirect.dart';
@@ -55,6 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           _route(AppRoutes.home, (_) => const HomePage()),
           _route(AppRoutes.library, (_) => const LibraryPage()),
           _route(AppRoutes.downloads, (_) => const DownloadsPage()),
+          _route(AppRoutes.settings, (_) => const SettingsPage()),
           _route(
             AppRoutes.gamePattern,
             (state) => GameDetailPage(gameId: state.pathParameters['id']!),

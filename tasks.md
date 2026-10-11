@@ -51,7 +51,7 @@ start client on the server machine
 | **M4** ✅ | Play | Emulator detection (RetroArch + cores, standalone), launch options per game/system, managed emulator manifest |
 | M5 | Multi-device | A second device on the LAN pairs and logs in. The admin can revoke it and can create a regular user |
 | M6 | Admin library | Add one game, edit its title and metadata, delete it, and save scraper credentials. Overrides, moving the data folder, and reopening setup are later tasks in this milestone |
-| M7 | Polish | Search, a saved theme, a gamepad on the existing button map, an on-screen keyboard, and an accessibility pass |
+| M7 | Polish | Search, a Steam-style settings menu (interface, audio, emulators, storage, account), a gamepad on the existing button map, an on-screen keyboard, and an accessibility pass |
 | M8 | One app | The macOS app drops the sandbox, then a disk image starts the bundled server and opens the library. Login item, Windows, and Linux are separate tasks |
 
 Status legend: ⬜ todo · 🟦 in progress · ✅ done · ⛔ blocked
@@ -353,7 +353,7 @@ The disk image now contains `Contents/MacOS/rs_server` and `Contents/lib/libsqli
 
 M5 wave 1 can run as four agents at once: **T25, T26, T27, T30**. They do not share files.
 
-These touch other files and can run beside that wave: **T34** (scraper screen), **T53** (sandbox), **T58** (phone install folder), **T59** (per-system folder).
+These touch other files and can run beside that wave: **T34** (scraper screen), **T58** (phone install folder), **T60** (settings menu). T60 owns the settings route and does not edit M5 server files. T49 and the folder rows from T59 are part of T60.
 
 T35, T36, T37, T41, T42, T44, and T46 edit `rs_core` and `RsApiClient`, same as T25 and T30. They wait until **T33**.
 
@@ -558,10 +558,10 @@ Wave 7:                            ├── T45 migration screen (T44)
 
 ## M7 — Polish
 
-Search, theme, gamepad, keyboard, and accessibility are five tasks. The system tabs from M1 stay the filter. New component sets are Later.
+Search, the settings menu, gamepad, keyboard, and accessibility. The system tabs from M1 stay the filter. New component sets are Later. The settings screen itself is **T60** (open gaps) and can start before this milestone.
 
 ```
-Wave 1:  T48 search  |  T49 theme  |  T50 gamepad  |  T52 accessibility
+Wave 1:  T48 search  |  T50 gamepad  |  T52 accessibility
 Wave 2:  T51 on-screen keyboard (T50)
 ```
 
@@ -571,11 +571,8 @@ Wave 2:  T51 on-screen keyboard (T50)
 - Typing must keep working (no global letter shortcut). Focusable.
 - Widget test: a query is passed to the games provider, clearing it fetches the unfiltered page.
 
-### T49 — Theme settings ⬜
-**Owns:** `theme_settings_provider.dart` (drop the persist TODO), a theme settings page, its test. `RsThemeSettings` already has `mode`, `accent`, and JSON.
-- Save the settings locally, next to the other client JSON. Relaunch reads them back.
-- Page: dark / light / system, and the accent. Follow the theme tokens. Focusable.
-- Widget-free test for save and reload, plus a widget test that changing mode updates `themeSettingsProvider`.
+### T49 — Theme settings ✅
+Landed in **T60**. Do not build a separate theme page. Dark / light / system and the accent are the Interface category. Persistence lives in T60.
 
 ### T50 — Desktop gamepad ⬜
 **Owns:** the gamepad plugin wiring under `apps/client/lib/src/input/`, and tests. No new intent and no second shortcut map.
@@ -642,15 +639,55 @@ Wave 3:  T55 macOS login item (T54)  |  T56 Windows (T54)  |  T57 Linux (T54)
 
 Not a milestone. Safe to pick up without waiting for M5, except where a task says otherwise.
 
+### T60 — Settings menu ✅
+**Owns:** `apps/client/lib/src/settings/`, the `/settings` route, the top-bar gear, `theme_settings_provider.dart` (drop the persist TODO), the Downloads page folder block (remove it), the game-page line that points at Downloads for a folder, and tests. Absorbs T49 and the folder UI from T59. No new server route. No sound files. No edits under `apps/server/` or M5 pairing files.
+
+Steam Big Picture (2023 / Deck) settings, not a dialog and not a separate page per topic. One screen inside the shell:
+
+- A focusable gear in `RsTopBar.trailing` opens `/settings`. The avatar dialog stays the quick sign-out.
+- Left column: categories Interface, Audio, Emulators, Storage, Account. The selected row uses the theme accent. Right column: that category's `RsListRow`s. Both columns scroll on their own. Up/down stays in the focused column. Left/right moves between columns. B leaves settings (`go` home, or pop). No global letter shortcuts.
+- Narrow width stacks the columns: categories first, then the open category. Phone width still works.
+- Web stays in the shell. Storage is omitted when `canInstallGames` is false. Emulators still shows saved system choices when `canLaunchGames` is false, with a line that this device does not start games. Do not invent emulators.
+
+**Interface** (T49):
+- Display: Dark, Light, Match system. Activate opens a focusable list. The choice updates `themeSettingsProvider` immediately.
+- Accent: a short preset list, Steam blue (`RsThemeSettings.defaultAccent`) first. Same pattern.
+
+**Audio:**
+- One row, "UI sounds", switch, default on. Persist it. Do not play cues. Playback stays in Later.
+
+**Emulators:**
+- System defaults only. Game overrides stay on the game-page picker.
+- One row per system that a detected emulator supports or that already has a system choice. Label from `GameSystems`. Trailing value is the current choice (emulator name, plus core when set) or "Ask when playing".
+- Activate opens a focusable list of detected emulators and cores for that system, plus a custom command. Saving calls `LaunchOptionsNotifier.setSystem`. A clear action calls `clearSystem`.
+- Nothing detected and no saved choices: one line, no fake rows.
+
+**Storage:**
+- Global install folder. Picker is the existing `showFolderBrowser` (server disk, same as Downloads today).
+- One row per system that has an override or an installed game: current folder, picker calls `setSystemFolder`. Clear returns that system to the global folder.
+- Remove the folder picker from the Downloads page. The queue stays. The game page note becomes "Pick a folder in Settings."
+
+**Account:**
+- Signed-in username. Sign out calls the same logout as the avatar dialog.
+
+**Persistence:**
+- One `client_settings.json` next to `installs.json` on IO: `RsThemeSettings` JSON plus `uiSounds`. Web uses the existing preferences store, because web has no install directory. Tests override the store. Relaunch reads theme and the sound switch back. Malformed JSON falls back to defaults.
+
+**Tests:**
+- Gear opens `/settings`, and switching category shows that category's rows.
+- Changing display mode updates `themeSettingsProvider` and a reloaded store returns it.
+- The sound switch round-trips.
+- Choosing a detected emulator writes a system choice and does not change another system.
+- Setting the `snes` folder does not change the global folder.
+- Update the Downloads page test that expects the folder picker.
+
 ### T58 — Phone and tablet install folder ⬜
 **Owns:** `installDirectoryProvider` for android and ios, and a test. Desktop paths stay as they are.
 - Add `path_provider` (or the existing equivalent) and pass the app-support directory in. The web stub still throws if called.
 - Test that android and ios resolve a non-null directory when the provider is given a fake path.
 
-### T59 — Per-system install folder ⬜
-**Owns:** the Downloads page control and its test. `InstallStore.folderFor` already honors an override. No store rewrite.
-- The page keeps the global folder. It adds a row per system that has an installed game or an override: the current folder, and a picker that calls the existing per-system setter. Clearing the row returns that system to the global folder.
-- Focusable. Widget test: setting `snes` does not change the global folder.
+### T59 — Per-system install folder ✅
+Landed in **T60** Storage. Do not add folder rows to the Downloads page. `InstallStore.folderFor` already honors an override. Global and per-system folders are settings rows. The Downloads page keeps the queue.
 
 ---
 
@@ -663,7 +700,7 @@ Designed only. No task number until a milestone picks one up.
 - **Save sync**, and cloud backup of server saves.
 - **Managed emulator downloads**, and whether those emulators may fetch BIOS from the server **(TBD)**.
 - **Material, Cupertino, and Fluent component sets.** Each is a package that implements `RsComponentSet`. Feature code already depends on `rs_ui` only.
-- **UI sounds.** Bundled cues for focus move, activate, back, and the home hero changing. A client setting turns them off. System mute is respected. No music.
+- **UI sounds.** The on/off setting is **T60** (Audio) and is persisted there. Playback is still later: bundled cues for focus move, activate, back, and the home hero changing. That setting turns them off. System mute is respected. No music.
 - **Startup animation.** A short intro before connect or welcome. A or Esc skips it. A returning session is not held on it. Reduced motion shows a still frame.
 - **HTTP suffix ranges** (`bytes=-N`). Resume already sends `bytes=<received>-`. Suffix ranges stay `416`.
 - **Zip and 7z ingest.** When it exists, guard against zip-slip and decompression bombs.

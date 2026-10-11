@@ -1,6 +1,7 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
 
 import '../notifications/notification_center.dart';
@@ -8,7 +9,8 @@ import '../platform/client_capabilities.dart';
 import '../session/session_provider.dart';
 import 'app_routes.dart';
 
-/// Main shell for `/home`, `/library`, `/downloads` and `/game/:id`.
+/// Main shell for `/home`, `/library`, `/downloads`, `/settings`, and
+/// `/game/:id`.
 ///
 /// The top bar is Home, Library, and Downloads when this device can install
 /// games. Downloads is left out otherwise (the web client). Pages inside the
@@ -54,6 +56,12 @@ class AppShell extends ConsumerWidget {
             ref.read(notificationCenterProvider.notifier).markAllRead(),
         userName: user?.username,
         onAvatar: () => _showAccountDialog(context, ref),
+        trailing: [
+          _SettingsButton(
+            selected: location == AppRoutes.settings,
+            onPressed: () => context.go(AppRoutes.settings),
+          ),
+        ],
       ),
       hints: RsButtonHints(
         hints: [
@@ -63,7 +71,11 @@ class AppShell extends ConsumerWidget {
             label: 'Back',
             onPressed: () {
               final router = GoRouter.of(context);
-              if (router.canPop()) router.pop();
+              if (router.canPop()) {
+                router.pop();
+                return;
+              }
+              if (location == AppRoutes.settings) context.go(AppRoutes.home);
             },
           ),
         ],
@@ -73,7 +85,12 @@ class AppShell extends ConsumerWidget {
   }
 
   /// Home is 0, Library is 1, Downloads is 2. Game pages stay on Home.
+  ///
+  /// Settings is -1 so no tab draws a selection mark. The Steam top bar
+  /// treats selection as equality, so -1 highlights nothing. Shoulder
+  /// buttons still run [rsCycleSelection], which clamps -1 onto Home.
   static int _selectedIndex(String location, {required bool canInstall}) {
+    if (location == AppRoutes.settings) return -1;
     if (location.startsWith(AppRoutes.library)) return 1;
     if (canInstall && location.startsWith(AppRoutes.downloads)) return 2;
     return 0;
@@ -105,4 +122,48 @@ class AppShell extends ConsumerWidget {
           );
         },
       );
+}
+
+class _SettingsButton extends StatelessWidget {
+  const _SettingsButton({required this.selected, required this.onPressed});
+
+  final bool selected;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.rsTokens;
+    final d = t.sizes.avatar;
+    return Padding(
+      padding: EdgeInsets.only(right: t.spacing.sm),
+      child: RsFocusable(
+        onActivate: onPressed,
+        semanticLabel: 'Settings',
+        builder: (context, state) {
+          final highlighted = state.highlighted;
+          return SizedBox(
+            width: d,
+            height: d,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: highlighted
+                    ? t.focusSurface
+                    : t.focusSurface.withValues(alpha: 0),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.settings,
+                size: t.sizes.icon + 2,
+                color: highlighted
+                    ? t.onFocusSurface
+                    : selected
+                    ? t.accent
+                    : t.textSecondary,
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 }

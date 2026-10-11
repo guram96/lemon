@@ -15,6 +15,7 @@ abstract final class AppRoutes {
   static const home = '/home';
   static const library = '/library';
   static const downloads = '/downloads';
+  static const settings = '/settings';
   static const gamePattern = '/game/:id';
   static String game(String id) => '/game/${Uri.encodeComponent(id)}';
 }

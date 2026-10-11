@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rs_theme/rs_theme.dart';
 
-/// Current theme settings. Edited from the settings UI.
-// TODO(settings): persist locally once the settings feature exists.
+import '../settings/client_settings.dart';
+
+/// Current theme settings. Edited from the settings UI and written to
+/// [clientSettingsStoreProvider].
 final themeSettingsProvider =
     NotifierProvider<ThemeSettingsNotifier, RsThemeSettings>(
       ThemeSettingsNotifier.new,
@@ -10,7 +12,10 @@ final themeSettingsProvider =
 
 class ThemeSettingsNotifier extends Notifier<RsThemeSettings> {
   @override
-  RsThemeSettings build() => const RsThemeSettings();
+  RsThemeSettings build() =>
+      ref.watch(clientSettingsProvider.select((settings) => settings.theme));
 
-  void update(RsThemeSettings settings) => state = settings;
+  /// Applies [settings] immediately and persists them.
+  Future<void> update(RsThemeSettings settings) =>
+      ref.read(clientSettingsProvider.notifier).setTheme(settings);
 }
