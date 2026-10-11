@@ -10,6 +10,9 @@ import 'package:rs_client/src/connection/server_address.dart';
 import 'package:rs_client/src/events/library_revision_provider.dart';
 import 'package:rs_client/src/game/game_page.dart';
 import 'package:rs_client/src/home/home_page.dart';
+import 'package:rs_client/src/install/download_queue.dart';
+import 'package:rs_client/src/install/install_models.dart';
+import 'package:rs_client/src/install/install_store.dart';
 import 'package:rs_client/src/library/format.dart';
 import 'package:rs_client/src/library/library_page.dart';
 import 'package:rs_client/src/library/library_status.dart';
@@ -138,6 +141,8 @@ void main() {
                 deviceName: 'Test Mac',
               ),
         ),
+        downloadQueueProvider.overrideWith(_EmptyQueue.new),
+        destinationsProvider.overrideWith(_NoFolder.new),
       ],
     );
     addTearDown(container.dispose);
@@ -375,38 +380,42 @@ void main() {
     }
   });
 
-  testWidgets('game page shows the hero, size, files, and a disabled install', (
-    tester,
-  ) async {
-    final api = LibraryApi();
-    try {
-      final container = await pumpLibrary(tester, api);
-      container.read(routerProvider).go(AppRoutes.game('chrono'));
-      await tester.pumpAndSettle();
+  testWidgets(
+    'game page shows the hero and keeps install disabled without a folder',
+    (tester) async {
+      final api = LibraryApi();
+      try {
+        final container = await pumpLibrary(tester, api);
+        container.read(routerProvider).go(AppRoutes.game('chrono'));
+        await tester.pumpAndSettle();
 
-      expect(find.byType(GameDetailPage), findsOneWidget);
-      expect(find.byType(RsHero), findsOneWidget);
-      expect(find.text('Chrono Trigger'), findsWidgets);
-      expect(find.text('Super Nintendo'), findsWidgets);
-      expect(find.text(formatBytes(_chrono.sizeBytes)), findsWidgets);
-      expect(find.text('Chrono Trigger.sfc'), findsOneWidget);
-      expect(find.text(formatBytes(512)), findsOneWidget);
-      expect(find.text('A trip through time.'), findsOneWidget);
-      expect(find.text('Square'), findsOneWidget);
-      expect(find.text('Squaresoft'), findsOneWidget);
-      expect(find.text('1995'), findsOneWidget);
-      expect(find.text(formatDate(_chrono.addedAt)), findsOneWidget);
+        expect(find.byType(GameDetailPage), findsOneWidget);
+        expect(find.byType(RsHero), findsOneWidget);
+        expect(find.text('Chrono Trigger'), findsWidgets);
+        expect(find.text('Super Nintendo'), findsWidgets);
+        expect(find.text(formatBytes(_chrono.sizeBytes)), findsWidgets);
+        expect(find.text('Chrono Trigger.sfc'), findsOneWidget);
+        expect(find.text(formatBytes(512)), findsOneWidget);
+        expect(find.text('A trip through time.'), findsOneWidget);
+        expect(find.text('Square'), findsOneWidget);
+        expect(find.text('Squaresoft'), findsOneWidget);
+        expect(find.text('1995'), findsOneWidget);
+        expect(find.text(formatDate(_chrono.addedAt)), findsOneWidget);
 
-      final install = tester.widget<RsButton>(
-        find.widgetWithText(RsButton, 'Install'),
-      );
-      expect(install.variant, RsButtonVariant.primary);
-      expect(install.onPressed, isNull);
-      expect(find.text('Downloads arrive in M3'), findsOneWidget);
-    } finally {
-      await unmount(tester);
-    }
-  });
+        final install = tester.widget<RsButton>(
+          find.widgetWithText(RsButton, 'Install'),
+        );
+        expect(install.variant, RsButtonVariant.primary);
+        expect(install.onPressed, isNull);
+        expect(
+          find.text('Pick a folder on the Downloads page.'),
+          findsOneWidget,
+        );
+      } finally {
+        await unmount(tester);
+      }
+    },
+  );
 
   testWidgets('web hides the install row', (tester) async {
     final api = LibraryApi();
@@ -421,7 +430,7 @@ void main() {
 
       expect(find.text('Chrono Trigger'), findsWidgets);
       expect(find.widgetWithText(RsButton, 'Install'), findsNothing);
-      expect(find.text('Downloads arrive in M3'), findsNothing);
+      expect(find.text('Pick a folder on the Downloads page.'), findsNothing);
     } finally {
       await unmount(tester);
     }
@@ -445,4 +454,14 @@ void main() {
       await unmount(tester);
     }
   });
+}
+
+class _EmptyQueue extends DownloadQueueNotifier {
+  @override
+  List<InstallRecord> build() => const [];
+}
+
+class _NoFolder extends DestinationsNotifier {
+  @override
+  Future<InstallDestination> build() async => InstallDestination();
 }

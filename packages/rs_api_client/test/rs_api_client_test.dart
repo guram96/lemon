@@ -378,6 +378,92 @@ void main() {
     });
   });
 
+  group('download', () {
+    const manifest = DownloadManifest(
+      gameId: 'g 1',
+      systemId: 'snes',
+      files: [
+        DownloadFile(index: 0, path: 'ct.sfc', sizeBytes: 10, sha1: 'abc'),
+      ],
+    );
+
+    Future<List<int>> collect(DownloadStream stream) =>
+        stream.bytes.fold<List<int>>(<int>[], (all, chunk) {
+          all.addAll(chunk);
+          return all;
+        });
+
+    test('downloadManifest decodes the catalog files', () async {
+      final client = clientWith((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path, ApiRoutes.gameDownload('g 1'));
+        return json(manifest.toJson());
+      });
+      expect(await client.downloadManifest('g 1'), manifest);
+    });
+
+    test('openGameFile returns a 200 body with no Range header', () async {
+      final client = clientWith((request) async {
+        expect(request.url.path, ApiRoutes.gameDownloadFile('g 1', 0));
+        expect(request.headers.containsKey('range'), isFalse);
+        return http.Response.bytes(
+          [1, 2, 3],
+          200,
+          headers: {'content-length': '3'},
+        );
+      });
+      final stream = await client.openGameFile('g 1', 0);
+      expect(stream.statusCode, 200);
+      expect(stream.totalBytes, 3);
+      expect(stream.start, 0);
+      expect(await collect(stream), [1, 2, 3]);
+    });
+
+    test('openGameFile sends Range and returns a 206 stream', () async {
+      final client = clientWith((request) async {
+        expect(request.method, 'GET');
+        expect(request.url.path, ApiRoutes.gameDownloadFile('g 1', 0));
+        expect(request.headers['range'], 'bytes=4-');
+        return http.Response.bytes(
+          [4, 5, 6],
+          206,
+          headers: {
+            'content-type': 'application/octet-stream',
+            'content-length': '3',
+            'content-range': 'bytes 4-6/10',
+            'accept-ranges': 'bytes',
+          },
+        );
+      });
+      final stream = await client.openGameFile('g 1', 0, start: 4);
+      expect(stream.statusCode, 206);
+      expect(stream.totalBytes, 10);
+      expect(stream.start, 4);
+      expect(await collect(stream), [4, 5, 6]);
+    });
+
+    test('openGameFile maps a non-206 error to ApiException', () async {
+      final client = clientWith(
+        (_) async => json(
+          const ApiError(
+            code: ApiErrorCodes.conflict,
+            message: 'offline',
+          ).toJson(),
+          409,
+        ),
+      );
+      await expectLater(
+        client.openGameFile('g 1', 0, start: 4),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 409)
+              .having((e) => e.error.code, 'code', ApiErrorCodes.conflict)
+              .having((e) => e.error.message, 'message', 'offline'),
+        ),
+      );
+    });
+  });
+
   group('errors', () {
     test(
       'non-2xx responses throw ApiException with the server error',

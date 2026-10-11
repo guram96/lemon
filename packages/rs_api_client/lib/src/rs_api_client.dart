@@ -12,6 +12,25 @@ import 'api_exception.dart';
 /// [WebSocketChannel.connect], which works on every platform including web.
 typedef WebSocketConnector = WebSocketChannel Function(Uri uri);
 
+/// Bytes of one catalog file from [RsApiClient.openGameFile].
+///
+/// [statusCode] is 200 for the whole file and 206 for a single byte range.
+/// [start] is the offset of [bytes] within the file. [totalBytes] is the
+/// full file size.
+class DownloadStream {
+  const DownloadStream({
+    required this.statusCode,
+    required this.totalBytes,
+    required this.start,
+    required this.bytes,
+  });
+
+  final int statusCode;
+  final int totalBytes;
+  final int start;
+  final Stream<List<int>> bytes;
+}
+
 /// Client for one server, addressed by [baseUri] (for example
 /// `http://192.168.1.10:47320`).
 ///
@@ -131,6 +150,48 @@ class RsApiClient {
 
   Future<Game> game(String id) async =>
       Game.fromJson(_asMap(await _get(ApiRoutes.libraryGame(id))));
+
+  /// Catalog files for [gameId]. Does not download bytes.
+  Future<DownloadManifest> downloadManifest(String gameId) async =>
+      DownloadManifest.fromJson(
+        _asMap(await _get(ApiRoutes.gameDownload(gameId))),
+      );
+
+  /// Byte stream of catalog file [index].
+  ///
+  /// [start] sends `Range: bytes=<start>-`. A 200 or 206 response is returned
+  /// as a [DownloadStream]; any other status throws [ApiException].
+  Future<DownloadStream> openGameFile(
+    String gameId,
+    int index, {
+    int? start,
+  }) async {
+    final request = http.Request(
+      'GET',
+      baseUri.resolve(ApiRoutes.gameDownloadFile(gameId, index)),
+    )..headers.addAll(_headers());
+    if (start != null) request.headers['range'] = 'bytes=$start-';
+
+    final http.StreamedResponse response;
+    try {
+      response = await _http.send(request);
+    } on http.ClientException catch (e) {
+      throw ApiException(
+        statusCode: null,
+        error: ApiError(code: ApiErrorCodes.unreachable, message: e.message),
+      );
+    }
+    if (response.statusCode != 200 && response.statusCode != 206) {
+      await _throwDownloadError(response);
+    }
+    final bounds = _downloadBounds(response);
+    return DownloadStream(
+      statusCode: response.statusCode,
+      totalBytes: bounds.totalBytes,
+      start: bounds.start,
+      bytes: response.stream,
+    );
+  }
 
   Future<List<LibraryRoot>> roots() async =>
       _asList(await _get(ApiRoutes.libraryRoots), LibraryRoot.fromJson);
@@ -361,6 +422,61 @@ class RsApiClient {
       return [for (final item in body) fromJson(_asMap(item))];
     }
     throw FormatException('Expected a JSON array', body);
+  }
+
+  static final _contentRange = RegExp(
+    r'^bytes (\d+)-(\d+)/(\d+)$',
+    caseSensitive: false,
+  );
+
+  /// Total size and start offset of a 200 or 206 download response.
+  static ({int totalBytes, int start}) _downloadBounds(
+    http.StreamedResponse response,
+  ) {
+    final header = response.headers['content-range'];
+    if (header != null) {
+      final match = _contentRange.firstMatch(header.trim());
+      if (match != null) {
+        return (
+          totalBytes: int.parse(match.group(3)!),
+          start: int.parse(match.group(1)!),
+        );
+      }
+    }
+    if (response.statusCode == 206) {
+      throw const FormatException(
+        'Partial download is missing a Content-Range header.',
+      );
+    }
+    final length = response.contentLength;
+    if (length == null) {
+      throw const FormatException('Download response is missing its length.');
+    }
+    return (totalBytes: length, start: 0);
+  }
+
+  /// Reads a non-200/206 body and throws [ApiException], matching [_send].
+  static Future<Never> _throwDownloadError(
+    http.StreamedResponse response,
+  ) async {
+    final raw = await response.stream.bytesToString();
+    Object? body;
+    if (raw.isNotEmpty) {
+      try {
+        body = jsonDecode(raw);
+      } on FormatException {
+        // A non-JSON error body (for example from a proxy) falls back below.
+      }
+    }
+    throw ApiException(
+      statusCode: response.statusCode,
+      error: body is Map<String, Object?>
+          ? ApiError.fromJson(body)
+          : ApiError(
+              code: ApiErrorCodes.internal,
+              message: 'HTTP ${response.statusCode}',
+            ),
+    );
   }
 
   static ServerEvent? _decodeEvent(Object? message) {

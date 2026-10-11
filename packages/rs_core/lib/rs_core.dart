@@ -11,6 +11,7 @@ export 'src/discovery/discovery.dart';
 export 'src/discovery/pairing_payload.dart';
 export 'src/events/server_event.dart';
 export 'src/library/artwork.dart';
+export 'src/library/download.dart';
 export 'src/library/game.dart';
 export 'src/library/game_system.dart';
 export 'src/library/library_queries.dart';

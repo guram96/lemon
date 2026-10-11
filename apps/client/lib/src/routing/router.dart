@@ -7,6 +7,7 @@ import '../auth/login_page.dart';
 import '../connection/connect_page.dart';
 import '../connection/connection_provider.dart';
 import '../connection/startup_page.dart';
+import '../downloads/downloads_page.dart';
 import '../game/game_page.dart';
 import '../home/home_page.dart';
 import '../library/library_page.dart';
@@ -53,6 +54,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         routes: [
           _route(AppRoutes.home, (_) => const HomePage()),
           _route(AppRoutes.library, (_) => const LibraryPage()),
+          _route(AppRoutes.downloads, (_) => const DownloadsPage()),
           _route(
             AppRoutes.gamePattern,
             (state) => GameDetailPage(gameId: state.pathParameters['id']!),

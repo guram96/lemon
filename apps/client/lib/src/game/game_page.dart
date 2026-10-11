@@ -5,6 +5,10 @@ import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
 
 import '../connection/connection_provider.dart';
+import '../downloads/downloads_page.dart';
+import '../install/download_queue.dart';
+import '../install/install_models.dart';
+import '../install/install_store.dart';
 import '../library/format.dart';
 import '../library/game_art.dart';
 import '../library/library_providers.dart';
@@ -69,7 +73,7 @@ class GameDetailPage extends ConsumerWidget {
                 ),
                 if (caps.canInstallGames) ...[
                   SizedBox(height: t.spacing.md),
-                  const _InstallRow(),
+                  _InstallRow(game: game),
                 ],
               ],
             ),
@@ -136,31 +140,75 @@ class GameDetailPage extends ConsumerWidget {
   }
 }
 
-class _InstallRow extends StatelessWidget {
-  const _InstallRow();
+class _InstallRow extends ConsumerWidget {
+  const _InstallRow({required this.game});
+
+  final Game game;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.rsTokens;
     final text = Theme.of(context).textTheme;
+    final folder = ref
+        .watch(destinationsProvider)
+        .value
+        ?.folderFor(game.systemId);
+    final record = _recordFor(game.id, ref.watch(downloadQueueProvider));
+
+    final Widget? button;
+    final String? note;
+    if (record == null) {
+      if (folder == null) {
+        button = const RsButton(
+          label: 'Install',
+          icon: Icons.download_rounded,
+          variant: RsButtonVariant.primary,
+          onPressed: null,
+        );
+        note = 'Pick a folder on the Downloads page.';
+      } else {
+        button = RsButton(
+          label: 'Install',
+          icon: Icons.download_rounded,
+          variant: RsButtonVariant.primary,
+          onPressed: () =>
+              ref.read(downloadQueueProvider.notifier).enqueue(game),
+        );
+        note = null;
+      }
+    } else if (record.phase == InstallPhase.installed) {
+      button = RsButton(
+        label: 'Uninstall',
+        icon: Icons.delete_outline_rounded,
+        variant: RsButtonVariant.danger,
+        onPressed: () =>
+            ref.read(downloadQueueProvider.notifier).uninstallGame(game.id),
+      );
+      note = null;
+    } else {
+      // Queued, downloading, paused, or failed: the job already exists.
+      button = null;
+      note = installPhaseLabel(record.phase);
+    }
+
     return Wrap(
       spacing: t.spacing.md,
       runSpacing: t.spacing.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        const RsButton(
-          label: 'Install',
-          icon: Icons.download_rounded,
-          variant: RsButtonVariant.primary,
-          onPressed: null,
-        ),
-        Text(
-          'Downloads arrive in M3',
-          style: text.bodyLarge?.copyWith(color: t.textSecondary),
-        ),
+        ?button,
+        if (note != null)
+          Text(note, style: text.bodyLarge?.copyWith(color: t.textSecondary)),
       ],
     );
   }
+}
+
+InstallRecord? _recordFor(String gameId, List<InstallRecord> records) {
+  for (final record in records) {
+    if (record.gameId == gameId) return record;
+  }
+  return null;
 }
 
 class _Detail extends StatelessWidget {

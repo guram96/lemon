@@ -25,7 +25,7 @@ API spec: `docs/api-contract.md`.
   in, browses, downloads games into the emulator's folders and launches them.
 - **Contract** (`rs_core` + `rs_api_client`): the only thing the two share.
 
-### The first-run experience (Milestone 1 target)
+### The first-run experience (shipped in M1)
 
 ```
 start client on the server machine
@@ -45,13 +45,14 @@ start client on the server machine
 
 | | Milestone | Outcome |
 |---|---|---|
-| **M1** | First run → Home | Setup wizard, background login, scan with live progress, Big Picture home/library/game page with generated art |
-| M2 | Art & metadata | ScreenScraper + SteamGridDB scraping, artwork pipeline & serving, real hero/logo/capsules, file watching |
-| M3 | Downloads | Install destinations, download queue (pause/resume, range requests), installed state, uninstall, Downloads page |
-| M4 | Play | Emulator detection (RetroArch + cores, standalone), launch options per game/system, managed emulator manifest |
+| **M1** ✅ | First run → Home | Setup wizard, background login, scan with live progress, Big Picture home/library/game page with generated art |
+| **M2** ✅ | Art & metadata | ScreenScraper + SteamGridDB scraping, artwork pipeline & serving, real hero/logo/capsules, file watching |
+| **M3** ✅ | Downloads | Install destinations, download queue (pause/resume, range requests), installed state, uninstall, Downloads page |
+| **M4** | Play | Emulator detection (RetroArch + cores, standalone), launch options per game/system, managed emulator manifest |
 | M5 | Multi-device | mDNS discovery, QR pairing, manual address, login screen, user & device admin |
-| M6 | Admin | ROM upload, game delete, metadata edit, artwork overrides, storage migration, server settings |
+| M6 | Admin | Drag a folder in to add a game, with title recognition and editable metadata. Also ROM upload, game delete, artwork overrides, storage migration, server settings |
 | M7 | Polish | Search, filters, theme settings, desktop gamepad, on-screen keyboard, more component sets |
+| M8 | One app | One desktop icon starts the server and the client together. The same app can start when the user logs in |
 
 Status legend: ⬜ todo · 🟦 in progress · ✅ done · ⛔ blocked
 
@@ -229,10 +230,76 @@ Wave 3:                    T16 client shows the art that T14 stored (T15)
 
 ---
 
-## Backlog (M3+, refined when M2 lands)
+## M3 — Downloads
 
-- M3: client storage service · install destinations (global + per system) · download queue w/ HTTP range resume · `GET /games/{id}/download` · installed-state DB on client · Downloads page · uninstall.
-- M4: emulator manifest format · RetroArch + core detection per OS · launch options UI · process launch · managed emulator installs.
+The user picks where games are installed. The server streams each catalog file with HTTP ranges. The client queues one job per game, resumes after a pause or a restart, and uninstall deletes only the local files.
+
+Web has no install, queue, or Downloads page (`ClientCapabilities.canInstallGames`).
+
+```
+Wave 1:  T17 server range download ─┐  T18 install store ─┐
+Wave 2:                             └── T19 download queue (T17, T18)
+Wave 3:                                T20 Downloads page + Install button (T19)
+```
+
+### T17 — ROM download ✅
+**Owns:** `packages/rs_core/lib/src/library/download.dart` (and its generated files), the new constants in `packages/rs_core/lib/src/api/api_routes.dart`, `packages/rs_api_client/` download methods, `apps/server/lib/src/routes/library_routes.dart` download handlers only, `apps/server/test/download/`.
+- Contract is in `docs/api-contract.md` under "M3 additions". Do not edit that file.
+- `DownloadManifest` / `DownloadFile` freezed models. Run `dart run build_runner build -d` in `packages/rs_core` and commit the generated files in the tree (do not git-commit).
+- `GET /library/games/{id}/download` and `GET .../download/{index}`. Session, not admin. Resolve the file from the catalog (root id + stored relative path) through `PathGuard`. Never use a client-supplied path.
+- Stream with `File.openRead`. Support a single `Range`. `200`, `206`, `416`, `404`, `409` as in the contract.
+- `RsApiClient.downloadManifest` and `openGameFile(gameId, index, {int? start})` return a stream for 200/206 and throw `ApiException` otherwise. Stay web-safe: no `dart:io`.
+- Tests: temp ROM, full body, a middle range, a range past EOF, unknown index, offline root. No live network beyond loopback.
+
+### T18 — Install store ✅
+**Owns:** `apps/client/lib/src/install/`, `apps/client/test/install/`.
+- Device-local. Not the server API. One JSON file, atomic replace. Inject the directory so tests use a temp dir. No new dependency.
+- Conditional import so the implementation's `dart:io` does not break the web build. The stub throws if called.
+- Destinations: one global folder, plus an optional folder per system id. `folderFor(systemId)` returns the override or the global folder. `null` when nothing is set.
+- Records keyed by `serverId` + `gameId`: phase `queued | downloading | paused | installed | failed`, `receivedBytes`, `totalBytes`, optional error, and one progress row per file (`index`, system-relative `path`, `receivedBytes`, `sizeBytes`, `complete`).
+- `put` replaces the record. `remove` drops it. `installs(serverId)` lists that server only.
+- Uninstall helper: delete only the recorded files, and only when the resolved path stays inside `folderFor(systemId)`. Then `remove` the record. A missing file is success. A path that escapes the folder is left on disk and reported.
+- Riverpod: `installStoreProvider`, `destinationsProvider`. No download loop, no new routes, no edits to the game page.
+- Widget-free unit tests for save/reload, per-system override, and uninstall path checks.
+- Desktop default is the OS app-support folder (`~/Library/Application Support/retro_steam`, XDG, or `%APPDATA%`). Android and iOS pass their app-support directory through `installDirectoryProvider` when the queue is wired. No `path_provider` until then.
+
+### T19 — Download queue ✅ (after T17, T18)
+**Owns:** `apps/client/lib/src/install/download_queue.dart`, `apps/client/test/install/download_queue_test.dart`.
+- One job per game. Pause, resume, and cancel. Resume sends `Range: bytes=<received>-` and appends. On success, mark the file complete and the game `installed` when every file is complete.
+- Writes `<folder>/<systemId>/<GameFile.path>`. Creates parent directories. Refuses a path that escapes the folder.
+- Queue survives a restart by reloading T18 records in `queued` or `downloading` (those resume as paused until the user resumes).
+- Hidden when `canInstallGames` is false. No Downloads page in this task.
+
+### T20 — Downloads page ✅ (after T19)
+**Owns:** `apps/client/lib/src/downloads/`, the Downloads nav item, the Install button on the game page, and their tests.
+- Shell nav gains Downloads when installs are supported. The page lists jobs with progress, pause, resume, and remove. Installed games can be uninstalled.
+- Game page Install starts a job. It stays disabled until a destination exists, with a line that tells the user to pick a folder. Picking a folder reuses the setup folder browser.
+- Focusable. No hardcoded colors or sizes. Feature code imports `rs_ui`, not `rs_ui_steam`.
+
+---
+
+## Where we are
+
+M1, M2, and M3 are done (T1–T20). A new server can be set up from the client, scanned, scraped, and browsed with real artwork. A desktop client can pick an install folder, download a game with pause and resume, and uninstall the local files. Web can browse and administer, and does not install.
+
+`dart tool/check.dart` passed after M3.
+
+## Next
+
+**M4 — Play.** Detect an installed emulator (RetroArch and its cores, plus standalone emulators), let the user pick one per system or per game, and launch the installed ROM. Managed emulator downloads stay behind a manifest, not hardcoded commands.
+
+Break M4 into tasks the same way as M3 when that work starts.
+
+Carried out of M3, still open:
+
+- Android and iOS have no default install directory. They need `path_provider` (or the same idea) wired into `installDirectoryProvider`.
+- A folder the user picks on macOS needs a security-scoped bookmark. The app is sandboxed.
+- The Downloads page sets the global folder only. The store already supports a folder per system.
+- HTTP suffix ranges (`bytes=-N`) are rejected with `416`.
+
+## Backlog (after M4)
+
 - M5: mDNS advertise/browse · pairing tokens + QR (show/scan) · manual address · users admin · devices admin.
-- M6: upload (streamed, validated, atomic) · delete via catalog · metadata edit · artwork override browser · data-dir migration with progress · server settings UI.
+- M6: drag and drop a folder to add a game. The server treats it as one game when the files match a system (including multi-file units such as `.cue`/`.bin`). A hash match fills the title and metadata; otherwise the folder name is the title. The user can always edit the title and metadata before or after it is saved. Also streamed upload, delete via catalog, artwork override browser, data-dir migration with progress, server settings UI.
 - M7: search · theme settings · desktop gamepad plugin · on-screen keyboard · Material/Cupertino/Fluent sets.
+- M8: one desktop icon launches the server, then the client on that machine (localhost). A login item starts that same app when the user signs in, so other devices can reach the library without a terminal. macOS, Windows, and Linux. The server stays headless; quitting the client leaves the server running until the user quits it from the menu.

@@ -42,6 +42,13 @@ abstract final class ApiRoutes {
   static String libraryGame(String id) =>
       '$libraryGames/${Uri.encodeComponent(id)}';
 
+  /// `GET` → [DownloadManifest]. Any logged-in user.
+  static String gameDownload(String id) => '${libraryGame(id)}/download';
+
+  /// `GET` raw bytes of catalog file [index]. Honors one `Range` header.
+  static String gameDownloadFile(String id, int index) =>
+      '${gameDownload(id)}/$index';
+
   /// `GET` → `List<LibraryRoot>`. Admin only.
   static const libraryRoots = '$base/library/roots';
 

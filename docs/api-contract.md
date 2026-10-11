@@ -1,4 +1,6 @@
-# API contract — Milestone 1
+# API contract
+
+Through M3. M1 routes are below; M2 and M3 additions follow them.
 
 Owner: product owner. This is the spec that `rs_core` (DTOs + routes) and
 `rs_api_client` implement, and that server and client code against. Change it
@@ -184,3 +186,26 @@ ScreenScraperLogin { String devId; String devPassword; String username; String p
 ```
 
 `Game.artwork` is filled from the catalog on list and detail. A scrape never replaces artwork stored as an override.
+
+## M3 additions
+
+A game downloads as one unit: the manifest lists every catalog file, and each file is fetched by index. The client chooses the local folder. The server never receives a destination path.
+
+| Method & path | Auth | Request → Response |
+|---|---|---|
+| `GET /library/games/{id}/download` | session | → `DownloadManifest`. `404` unknown game. `409 conflict` if that game's library root is offline |
+| `GET /library/games/{id}/download/{index}` | session | raw bytes of catalog file `index`. `Accept-Ranges: bytes`. No `Range` → `200` and the whole file. One `Range: bytes=start-end` or `bytes=start-` → `206` with `Content-Range: bytes start-end/total`. `416` when the range is unsatisfiable (`Content-Range: bytes */total`). `404` unknown game or index. `409` offline root |
+
+```dart
+DownloadManifest { String gameId; String systemId; List<DownloadFile> files }
+DownloadFile { int index; String path; int sizeBytes; String? sha1 }
+```
+
+`path` is relative to the system folder, the same value as `GameFile.path`. `index` is the only file selector the client sends. The server resolves the catalog's root-relative path and refuses anything outside that root.
+
+Range details that shipped:
+
+- An end past the last byte is clamped, and the response is still `206`.
+- `416` when the start is past the end, the range is reversed, the header is not a single `bytes=start-end` or `bytes=start-`, more than one range is sent, or the range is a suffix (`bytes=-N`). The body uses `bad_request`. `Content-Range` is `bytes */<on-disk length>`.
+- A catalog path that is not a file on disk is `404`. A symlink that escapes the root is `400` `path_invalid`.
+- `Content-Range` uses the file's length on disk. `DownloadFile.sizeBytes` stays the size stored in the catalog.
