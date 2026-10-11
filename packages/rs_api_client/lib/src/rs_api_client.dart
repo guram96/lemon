@@ -45,6 +45,9 @@ class RsApiClient {
   final Duration reconnectInitialDelay;
   final Duration reconnectMaxDelay;
 
+  /// WebSocket close code the server uses for bad or revoked tokens.
+  static const unauthorizedCloseCode = 4401;
+
   // --- Server ---------------------------------------------------------------
 
   Future<ServerInfo> getServerInfo() async =>
@@ -171,7 +174,15 @@ class RsApiClient {
   /// connection fails or closes, until the subscription is cancelled. Tokens
   /// are read again on every reconnect. Messages that can't be decoded (for
   /// example event types from a newer server) are skipped.
-  Stream<ServerEvent> events() {
+  ///
+  /// When the server closes the socket with [unauthorizedCloseCode] (bad or
+  /// revoked tokens, logout), the stream emits an [ApiException] with status
+  /// `401` and code [ApiErrorCodes.unauthorized], then closes without
+  /// reconnecting.
+  ///
+  /// [onConnected] runs every time the socket is (re)connected. The server
+  /// does not replay missed events, so refetch state there.
+  Stream<ServerEvent> events({void Function()? onConnected}) {
     late StreamController<ServerEvent> controller;
     WebSocketChannel? channel;
     StreamSubscription<Object?>? subscription;
@@ -199,7 +210,10 @@ class RsApiClient {
       }
       channel = ws;
       ws.ready.then<void>(
-        (_) => attempt = 0,
+        (_) {
+          attempt = 0;
+          if (!cancelled) onConnected?.call();
+        },
         // Failures also close the stream below, which schedules the retry.
         onError: (Object _) {},
       );
@@ -212,6 +226,22 @@ class RsApiClient {
         onDone: () {
           subscription = null;
           channel = null;
+          if (ws.closeCode == unauthorizedCloseCode) {
+            cancelled = true;
+            if (!controller.isClosed) {
+              controller.addError(
+                const ApiException(
+                  statusCode: 401,
+                  error: ApiError(
+                    code: ApiErrorCodes.unauthorized,
+                    message: 'Event stream closed: not authorized',
+                  ),
+                ),
+              );
+              unawaited(controller.close());
+            }
+            return;
+          }
           scheduleReconnect(connect);
         },
         cancelOnError: false,

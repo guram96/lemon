@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
 
+import '../notifications/notification_host.dart';
 import '../routing/router.dart';
 import 'component_set_provider.dart';
 import 'theme_settings_provider.dart';
@@ -37,7 +38,9 @@ class RetroSteamApp extends ConsumerWidget {
                 },
               ),
             },
-            child: _Background(child: child ?? const SizedBox.shrink()),
+            child: _Background(
+              child: NotificationHost(child: child ?? const SizedBox.shrink()),
+            ),
           ),
         ),
       ),

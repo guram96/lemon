@@ -134,7 +134,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - Startup: if configured, open DB, refresh root status (offline/readOnly), serve.
 - Integration tests: full setup → login → scan → list games over real HTTP + WebSocket against temp dirs.
 
-### T6 — Client shell: connection, session, events, notifications 🟦 (after T1, T2)
+### T6 — Client shell: connection, session, events, notifications ✅ (after T1, T2)
 **Owns:** `apps/client/lib/main.dart`, `apps/client/lib/src/{app,routing,platform,connection,session,events,notifications,storage}/`, `apps/client/pubspec.yaml`, `apps/client/test/` (shell tests), `apps/client/macos/` entitlements
 - `CredentialStore` (shared_preferences now, interface for secure storage later): server base URI, server id, device token, session token, user.
 - `connectionProvider`: probe `http://127.0.0.1:47320` at startup → states `searching | unreachable | unconfigured | ready`. Unreachable → a simple "Server not found" page with Retry and manual address field.
@@ -145,7 +145,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - `NotificationCenter` (Notifier) + overlay host rendering `RsToast`s bottom-right; scan progress shows one persistent toast that updates, then a summary toast on done.
 - macOS: keep sandbox; add needed entitlements (network client already). Verify `flutter run -d macos` builds.
 
-### T7 — Onboarding UI: welcome → setup wizard → congratulations, login ⬜ (after T2, T6)
+### T7 — Onboarding UI: welcome → setup wizard → congratulations, login 🟦 (after T2, T6)
 **Owns:** `apps/client/lib/src/onboarding/`, `apps/client/lib/src/auth/`, matching tests
 - `WelcomePage`: Big Picture welcome splash, server name, [Get started].
 - `SetupWizardPage` built on `RsWizardFrame`, steps: Admin account (username, password ≥ 8, confirm, inline validation) → Data folder (server-side folder browser dialog via `browse`, `checkPath`, shows writable/free space/existing data dir "will be adopted") → Game library (add/remove roots, detected systems + counts, read-only and permission warnings) → Review → Finishing (calls `setup`, progress, error recovery).
@@ -154,7 +154,7 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 - `LoginPage`: username/password for returning sessions.
 - Fully usable with keyboard/d-pad only. Widget tests with a fake `RsApiClient`.
 
-### T8 — Home, library and game page ⬜ (after T2, T6)
+### T8 — Home, library and game page 🟦 (after T2, T6)
 **Owns:** `apps/client/lib/src/home/`, `apps/client/lib/src/library/`, `apps/client/lib/src/game/`, matching tests
 - Providers: `systemsProvider`, `gamesProvider(filter)`, `gameProvider(id)`, all refetching on `libraryRevisionProvider`.
 - `HomePage` (Big Picture home): large background that cross-fades to the focused game's art, "Recently added" shelf of big capsules, then one `RsShelf` per system. Empty / scanning state ("Scanning your library — games appear as they're found") with live progress.

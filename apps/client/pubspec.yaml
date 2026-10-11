@@ -14,6 +14,7 @@ dependencies:
     sdk: flutter
   flutter_riverpod: ^3.4.3
   go_router: ^18.0.2
+  http: ^1.6.0
   rs_api_client:
     path: ../../packages/rs_api_client
   rs_core:
@@ -24,6 +25,7 @@ dependencies:
     path: ../../packages/rs_ui
   rs_ui_steam:
     path: ../../packages/rs_ui_steam
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:

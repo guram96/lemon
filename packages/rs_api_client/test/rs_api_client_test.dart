@@ -479,6 +479,40 @@ void main() {
       await received.cancel();
     });
 
+    test('stops with a 401 ApiException on close code 4401', () async {
+      final client = eventsClient();
+      final incoming = StreamQueue(connections.stream);
+      var connected = 0;
+      final received = StreamQueue(
+        client.events(onConnected: () => connected++),
+      );
+      final first = received.next;
+
+      final (_, socket) = await incoming.next;
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(connected, 1);
+      await socket.close(RsApiClient.unauthorizedCloseCode, 'unauthorized');
+
+      await expectLater(
+        first,
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.statusCode, 'statusCode', 401)
+              .having((e) => e.error.code, 'code', ApiErrorCodes.unauthorized),
+        ),
+      );
+      expect(await received.hasNext, isFalse);
+      // No reconnect attempt.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      expect(
+        await incoming.hasNext.timeout(
+          const Duration(milliseconds: 50),
+          onTimeout: () => false,
+        ),
+        isFalse,
+      );
+    });
+
     test('retries when the server is not reachable yet', () async {
       final port = server.port;
       await server.close(force: true);
