@@ -165,3 +165,22 @@ Stream<ServerEvent> events()   // web_socket_channel (web-safe), reconnects with
 - Sessions are bound to the device that created them.
 - Setup retry: if the data dir already has an admin, setup proceeds only with the same credentials.
 - Run: `cd apps/server && dart run bin/rs_server.dart -v [--config f] [--port p] [--bind a]`.
+
+## M2 additions
+
+| Method & path | Auth | Request → Response |
+|---|---|---|
+| `GET /settings/scrapers` | admin | → `ScraperStatus` |
+| `PUT /settings/scrapers` | admin | `ScraperSettingsUpdate` → `ScraperStatus` |
+| `GET /artwork/{id}` | session | query `w?` (1–2048) → image bytes. `404` if missing |
+
+```dart
+ScraperStatus { bool screenScraper; bool steamGridDb }  // secrets are never returned
+ScraperSettingsUpdate {
+  ScreenScraperLogin? screenScraper;  // omit to leave stored credentials unchanged
+  String? steamGridDbApiKey;          // omit to leave unchanged; "" clears
+}
+ScreenScraperLogin { String devId; String devPassword; String username; String password }
+```
+
+`Game.artwork` is filled from the catalog on list and detail. A scrape never replaces artwork stored as an override.

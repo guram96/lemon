@@ -66,10 +66,17 @@ class ScanService {
   /// Completes when the running scan (if any) has finished.
   Future<void> get done => _running ?? Future<void>.value();
 
+  /// Called after a scan finishes, once another scan is allowed to start.
+  /// Not called when the service is shutting down.
+  void Function()? onFinished;
+
   /// Starts a scan in the background. Returns `false` if one is running.
   bool start() {
     if (_running != null || _stopping) return false;
-    _running = _run().whenComplete(() => _running = null);
+    _running = _run().whenComplete(() {
+      _running = null;
+      if (!_stopping) onFinished?.call();
+    });
     return true;
   }
 

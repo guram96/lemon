@@ -144,6 +144,16 @@ class RsApiClient {
   Future<ScanStatus> scanStatus() async =>
       ScanStatus.fromJson(_asMap(await _get(ApiRoutes.libraryScanStatus)));
 
+  /// Which scrape providers have credentials. Admin only; no secrets.
+  Future<ScraperStatus> scraperStatus() async =>
+      ScraperStatus.fromJson(_asMap(await _get(ApiRoutes.scraperSettings)));
+
+  /// Stores scrape credentials. Admin only. Returns the new status.
+  Future<ScraperStatus> updateScrapers(ScraperSettingsUpdate update) async =>
+      ScraperStatus.fromJson(
+        _asMap(await _put(ApiRoutes.scraperSettings, body: update.toJson())),
+      );
+
   /// URL of an artwork image, optionally resized to [width].
   Uri artworkUri(String artworkId, {int? width}) {
     final uri = baseUri.resolve(ApiRoutes.artwork(artworkId));
@@ -278,6 +288,14 @@ class RsApiClient {
     }
     return _send(() => _http.get(uri, headers: _headers()));
   }
+
+  Future<Object?> _put(String path, {Map<String, Object?>? body}) => _send(
+    () => _http.put(
+      baseUri.resolve(path),
+      headers: _headers(json: body != null),
+      body: body == null ? null : jsonEncode(body),
+    ),
+  );
 
   Future<Object?> _post(String path, {Map<String, Object?>? body}) => _send(
     () => _http.post(

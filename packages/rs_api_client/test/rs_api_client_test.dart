@@ -299,6 +299,26 @@ void main() {
       expect(await client.roots(), roots);
     });
 
+    test('scraper settings round-trip', () async {
+      const update = ScraperSettingsUpdate(
+        screenScraper: ScreenScraperLogin(
+          devId: 'dev',
+          devPassword: 'secret',
+          username: 'user',
+          password: 'secret',
+        ),
+        steamGridDbApiKey: 'grid',
+      );
+      const status = ScraperStatus(screenScraper: true, steamGridDb: true);
+      final client = clientWith((r) async {
+        expect(r.method, 'PUT');
+        expect(r.url.path, ApiRoutes.scraperSettings);
+        expect(bodyOf(r), update.toJson());
+        return json(status.toJson());
+      });
+      expect(await client.updateScrapers(update), status);
+    });
+
     test('startScan posts and accepts 202', () async {
       final client = clientWith((r) async {
         expect(r.method, 'POST');

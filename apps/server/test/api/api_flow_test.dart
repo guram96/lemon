@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:http/http.dart' as http;
+import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 import 'package:rs_core/rs_core.dart';
 import 'package:rs_server/rs_server.dart';
@@ -431,13 +432,97 @@ void main() {
       expect(ws.closeCode, wsUnauthorized);
     });
 
-    test('artwork is not available yet', () async {
-      final r = await s.get(
+    test('artwork 404s when missing and serves a stored image', () async {
+      final missing = await s.get(
         ApiRoutes.artwork('x'),
         device: device(),
         session: session(),
       );
-      expect(r.statusCode, 404);
+      expect(missing.statusCode, 404);
+
+      final game = (await games()).games.first;
+      final image = img.Image(width: 8, height: 4, numChannels: 3);
+      img.fill(image, color: img.ColorRgb8(10, 20, 30));
+      final stored = s.ctx.server!.artwork.putScraped(
+        gameId: game.id,
+        kind: ArtworkKind.cover,
+        source: ArtworkSource.screenScraper,
+        bytes: img.encodePng(image),
+      )!;
+
+      final full = await s.get(
+        ApiRoutes.artwork(stored.id),
+        device: device(),
+        session: session(),
+      );
+      expect(full.statusCode, 200);
+      expect(full.headers['content-type'], 'image/jpeg');
+      expect(img.decodeImage(full.bodyBytes)!.width, 8);
+
+      final small = await s.get(
+        ApiRoutes.artwork(stored.id),
+        device: device(),
+        session: session(),
+        query: {ApiQueryParams.width: '4'},
+      );
+      expect(small.statusCode, 200);
+      expect(img.decodeImage(small.bodyBytes)!.width, 4);
+
+      final badWidth = await s.get(
+        ApiRoutes.artwork(stored.id),
+        device: device(),
+        session: session(),
+        query: {ApiQueryParams.width: '0'},
+      );
+      expect(badWidth.statusCode, 400);
+
+      final listed = (await games()).games.firstWhere((g) => g.id == game.id);
+      expect(listed.artwork[ArtworkKind.cover]?.id, stored.id);
+    });
+
+    test('scraper settings store credentials without returning them', () async {
+      final before = await s.get(
+        ApiRoutes.scraperSettings,
+        device: device(),
+        session: session(),
+      );
+      expect(before.statusCode, 200);
+      expect(
+        ScraperStatus.fromJson(decodeObject(before)).screenScraper,
+        isFalse,
+      );
+
+      final saved = await s.put(
+        ApiRoutes.scraperSettings,
+        device: device(),
+        session: session(),
+        body: const ScraperSettingsUpdate(
+          screenScraper: ScreenScraperLogin(
+            devId: 'dev',
+            devPassword: 'secret',
+            username: 'user',
+            password: 'secret',
+          ),
+          steamGridDbApiKey: 'grid-key',
+        ).toJson(),
+      );
+      expect(saved.statusCode, 200);
+      final status = ScraperStatus.fromJson(decodeObject(saved));
+      expect(status.screenScraper, isTrue);
+      expect(status.steamGridDb, isTrue);
+      expect(saved.body.contains('secret'), isFalse);
+      expect(saved.body.contains('grid-key'), isFalse);
+
+      final cleared = await s.put(
+        ApiRoutes.scraperSettings,
+        device: device(),
+        session: session(),
+        body: const ScraperSettingsUpdate(steamGridDbApiKey: '').toJson(),
+      );
+      expect(
+        ScraperStatus.fromJson(decodeObject(cleared)).steamGridDb,
+        isFalse,
+      );
     });
   });
 
@@ -543,6 +628,7 @@ void main() {
       for (final res in [
         await s.get(ApiRoutes.libraryRoots, device: device(), session: kid),
         await s.post(ApiRoutes.libraryScan, device: device(), session: kid),
+        await s.get(ApiRoutes.scraperSettings, device: device(), session: kid),
         await s.post(
           ApiRoutes.setupBrowse,
           device: device(),

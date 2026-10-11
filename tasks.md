@@ -169,9 +169,68 @@ Pure engine, no DB, no HTTP: `Scanner.scan(rootPath, {previous index}) → Strea
 
 ---
 
-## Backlog (M2+, refined when M1 lands)
+## M2 — Art & metadata
 
-- M2: ScreenScraper client (hash lookup, rate limits, credentials in server settings) · SteamGridDB client · artwork pipeline (download, resize variants, `GET /artwork/{id}`) · root file watcher with debounce · artwork in cards/hero/logo.
+Scraped art and metadata replace the generated capsules. Credentials live in server settings (the settings screen itself is M6). Per-game artwork overrides are stored but not browsed until M6: a scrape never replaces a row with `is_override = 1`.
+
+```
+Wave 1:  T10 artwork store ─┐  T11 ScreenScraper ─┐  T12 SteamGridDB ─┐  T13 watcher ─┐
+Wave 2:                    ├── T14 scrape service (T10, T11, T12, T13) ───────────────┘
+                           └── T15 serve GET /artwork (T10)
+Wave 3:                    T16 client shows the art that T14 stored (T15)
+```
+
+### T10 — Artwork store & image pipeline ✅
+**Owns:** `apps/server/lib/src/artwork/`, `apps/server/test/artwork/`, `image` in `apps/server/pubspec.yaml`. May attach artwork onto `Game` JSON in `mappers.dart` and `library_routes.dart`.
+- `ArtworkRepo`: one row per (game, kind). `putScraped` refuses to replace `is_override = 1`. Files live in the data dir `artwork/` as `{id}.png` (alpha) or `{id}.jpg`.
+- Decode with size caps (25 MB, 8192 px edge, 16 megapixels). Re-encode so uploaded bytes are never served raw.
+- Resize cache under `cache/artwork/{id}/w{width}` for `GET /artwork/{id}?w=`. Width 1–2048; at or above the original width, serve the original.
+- `Game` list and detail include the `artwork` map. Unknown ids stay 404.
+- Tests with generated images. No HTTP, no scraping.
+
+### T11 — ScreenScraper client ✅
+**Owns:** `apps/server/lib/src/scrape/screenscraper/`, `apps/server/test/scrape/screenscraper_test.dart`, `http` in the server pubspec.
+- Pure client. `http.Client` is injected. No settings I/O.
+- `lookup` by CRC32/MD5/SHA1, optional ES system id → ScreenScraper `systemeid`. If the system is unknown or the hit misses, retry with the hash alone.
+- Parse title, description, developer, publisher, year, and media URLs mapped onto `ArtworkKind` (box → cover, fanart → hero, wheel → logo, screen → screenshot). Prefer `us`, then `wor`, `eu`, `jp`.
+- One request at a time, with a minimum gap (default 1.2 s) so a scrape can't burst the quota. Tests use a zero gap and fixture JSON. No live network.
+
+### T12 — SteamGridDB client ✅ (after nothing; parallel with T10–T13)
+**Owns:** `apps/server/lib/src/scrape/steamgriddb/`, matching tests.
+- Bearer API key, injected `http.Client`. Search by name, then grids / heroes / logos / icons.
+- Static images only. Map 600×900 grids → cover, 460×215 → capsule, heroes → hero, logos → logo, icons → icon.
+- Same one-at-a-time pacing. Fixture tests, no live network.
+
+### T13 — Library root watcher ✅
+**Owns:** `apps/server/lib/src/watch/`, matching tests.
+- `Directory.watch` on each online root, recursive. Debounce until 2 s quiet.
+- Ignore hidden names, `.retrosteam`, and ES media folders (`media`, `images`, `videos`, `manuals`, `downloaded_media`).
+- Emit `RootLibraryChange {rootId}` — the scan engine already diffs, so the event does not list files.
+- Tests with temp dirs. No HTTP, no DB.
+
+### T14 — Scrape service ✅ (after T10, T11, T12)
+**Owns:** `apps/server/lib/src/services/scrape_service.dart`, `apps/server/lib/src/routes/settings_routes.dart`, settings keys, a short addition to `docs/api-contract.md` if the DTOs below are not there yet.
+- Runs after a scan finishes, and when the watcher asks for a rescan. One scrape at a time. Skips games that already have metadata and every artwork kind, and never replaces an override.
+- ScreenScraper fills identity, metadata (only fields that are still null), cover, screenshot, and logo/hero fallbacks. SteamGridDB fills hero, logo, capsule, icon, and cover when still missing.
+- Downloads are capped (25 MB), checked by the image pipeline, then stored. Each saved game publishes `libraryChanged` so clients pick up the art.
+- Credentials in `settings`: `scrapers.screenscraper.{devId,devPassword,username,password}` and `scrapers.steamgriddb.apiKey`. Missing credentials: the scrape no-ops.
+- Admin API, secrets never returned:
+  - `GET /settings/scrapers` → `{screenScraper: bool, steamGridDb: bool}`
+  - `PUT /settings/scrapers` → `{screenScraper?: {devId, devPassword, username, password}, steamGridDbApiKey?: string}`. Omit a field to leave it; `""` clears that provider.
+- The settings UI is M6. Tests use fake clients and temp dirs.
+
+### T15 — Serve artwork ✅ (after T10; can land with T10)
+**Owns:** the `GET /artwork/{id}` handler and its test.
+- Session required. `?w=` resizes through the T10 cache. `Content-Type` matches the bytes. Path stays inside the artwork directory.
+
+### T16 — Client art ✅ (after T14, T15)
+**Owns:** `apps/client/lib/src/library/game_art.dart` and library/game tests only if something still fails.
+- Cards, shelves, and the hero already draw `Game.artwork` and fall back to generated art. Confirm a library refresh after `libraryChanged` swaps in the real image without dropping focus. Fix only the gaps.
+
+---
+
+## Backlog (M3+, refined when M2 lands)
+
 - M3: client storage service · install destinations (global + per system) · download queue w/ HTTP range resume · `GET /games/{id}/download` · installed-state DB on client · Downloads page · uninstall.
 - M4: emulator manifest format · RetroArch + core detection per OS · launch options UI · process launch · managed emulator installs.
 - M5: mDNS advertise/browse · pairing tokens + QR (show/scan) · manual address · users admin · devices admin.

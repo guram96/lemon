@@ -17,6 +17,7 @@ export 'src/library/library_queries.dart';
 export 'src/library/library_root.dart';
 export 'src/scan/scan_status.dart';
 export 'src/server/server_info.dart';
+export 'src/settings/scraper_settings.dart';
 export 'src/setup/browse.dart';
 export 'src/setup/path_check.dart';
 export 'src/setup/setup_request.dart';

@@ -1,5 +1,6 @@
 import 'package:rs_core/rs_core.dart';
 
+import '../artwork/artwork_repo.dart';
 import '../db/auth_repos.dart';
 import '../db/game_repo.dart';
 import '../db/root_repo.dart';
@@ -17,7 +18,10 @@ abstract final class Mappers {
 
   /// A catalog game. File paths become relative to the system folder
   /// (`snes/Game.sfc` → `Game.sfc`).
-  static Game game(GameRecord g) {
+  static Game game(
+    GameRecord g, {
+    Map<ArtworkKind, ArtworkRecord> artwork = const {},
+  }) {
     final prefix = '${g.systemId}/';
     return Game(
       id: g.id,
@@ -29,6 +33,7 @@ abstract final class Mappers {
       developer: g.developer,
       publisher: g.publisher,
       releaseYear: g.releaseYear,
+      artwork: {for (final e in artwork.entries) e.key: e.value.toDto()},
       files: [
         for (final f in g.files)
           GameFile(

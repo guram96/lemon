@@ -51,6 +51,10 @@ abstract final class ApiRoutes {
   /// `GET` → [ScanStatus]. Same path as [libraryScan].
   static const libraryScanStatus = libraryScan;
 
+  /// `GET` → [ScraperStatus]. `PUT` [ScraperSettingsUpdate] → [ScraperStatus].
+  /// Admin only. Secrets are never returned.
+  static const scraperSettings = '$base/settings/scrapers';
+
   /// Prefix of [artwork].
   static const artworkBase = '$base/artwork';
 

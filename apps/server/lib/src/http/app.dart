@@ -7,6 +7,7 @@ import '../routes/auth_routes.dart';
 import '../routes/events_routes.dart';
 import '../routes/library_routes.dart';
 import '../routes/server_info_routes.dart';
+import '../routes/settings_routes.dart';
 import '../routes/setup_routes.dart';
 import '../server_context.dart';
 import 'json.dart';
@@ -25,6 +26,7 @@ Handler buildApp(
   mountSetupRoutes(router, ctx, browser: browser, probe: probe);
   mountAuthRoutes(router, ctx);
   mountLibraryRoutes(router, ctx);
+  mountSettingsRoutes(router, ctx);
   mountEventRoutes(router, ctx);
 
   return const Pipeline()

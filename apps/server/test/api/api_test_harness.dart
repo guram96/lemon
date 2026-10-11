@@ -101,6 +101,17 @@ class TestServer {
     body: body == null ? null : jsonEncode(body),
   );
 
+  Future<http.Response> put(
+    String path, {
+    Object? body,
+    String? device,
+    String? session,
+  }) => client.put(
+    baseUri.resolve(path),
+    headers: headers(device: device, session: session, json: true),
+    body: body == null ? null : jsonEncode(body),
+  );
+
   Future<WebSocket> connectEvents({String? device, String? session}) {
     final uri = baseUri
         .resolve(ApiRoutes.events)

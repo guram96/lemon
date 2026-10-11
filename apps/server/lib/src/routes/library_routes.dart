@@ -2,6 +2,7 @@ import 'package:rs_core/rs_core.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
+import '../artwork/artwork_files.dart';
 import '../db/game_repo.dart';
 import '../http/api_failure.dart';
 import '../http/json.dart';
@@ -41,15 +42,20 @@ void mountLibraryRoutes(Router router, ServerContext ctx) {
         GameSort.recent => GameOrder.recent,
         final other => throw ApiFailure.badRequest('Unknown sort "$other".'),
       };
-      final result = ctx.requireServer().games.list(
+      final server = ctx.requireServer();
+      final result = server.games.list(
         systemId: q[ApiQueryParams.system],
         query: q[ApiQueryParams.query],
         sort: sort,
         offset: _intParam(q, offsetParam) ?? 0,
         limit: _intParam(q, limitParam),
       );
+      final art = server.artwork.forGames(result.games.map((g) => g.id));
       final page = GamePage(
-        games: result.games.map(Mappers.game).toList(),
+        games: [
+          for (final g in result.games)
+            Mappers.game(g, artwork: art[g.id] ?? const {}),
+        ],
         total: result.total,
       );
       return jsonOk(page.toJson());
@@ -58,9 +64,11 @@ void mountLibraryRoutes(Router router, ServerContext ctx) {
 
   final game = session.addHandler((request) {
     final id = request.params['id'] ?? '';
-    final record = ctx.requireServer().games.byId(id);
+    final server = ctx.requireServer();
+    final record = server.games.byId(id);
     if (record == null) throw const ApiFailure.notFound('No such game.');
-    return jsonOk(Mappers.game(record).toJson());
+    final art = server.artwork.forGames([id]);
+    return jsonOk(Mappers.game(record, artwork: art[id] ?? const {}).toJson());
   });
   router.get(
     '${ApiRoutes.libraryGames}/<id>',
@@ -93,14 +101,42 @@ void mountLibraryRoutes(Router router, ServerContext ctx) {
     ),
   );
 
-  // Artwork arrives in M2 (scraping). Auth is already enforced.
-  final artwork = session.addHandler(
-    (request) => throw const ApiFailure.notFound('No such artwork.'),
-  );
+  final artwork = session.addHandler((request) {
+    final id = request.params['id'] ?? '';
+    final server = ctx.requireServer();
+    final record = server.artwork.byId(id);
+    if (record == null) throw const ApiFailure.notFound('No such artwork.');
+    final width = _widthParam(request.url.queryParameters);
+    try {
+      final bytes = server.artworkFiles.variant(record.relPath, width: width);
+      return Response.ok(
+        bytes,
+        headers: {
+          'content-type': server.artworkFiles.contentType(record.relPath),
+          'cache-control': 'private, max-age=86400',
+        },
+      );
+    } on ArtworkException {
+      throw const ApiFailure.notFound('No such artwork.');
+    }
+  });
   router.get(
     '${ApiRoutes.artworkBase}/<id>',
     (Request request, String id) => artwork(request),
   );
+}
+
+/// `w` is optional. A present value must be 1–2048.
+int? _widthParam(Map<String, String> q) {
+  final raw = q[ApiQueryParams.width];
+  if (raw == null || raw.isEmpty) return null;
+  final value = int.tryParse(raw);
+  if (value == null || value < 1 || value > ArtworkFiles.maxServeWidth) {
+    throw const ApiFailure.badRequest(
+      '"${ApiQueryParams.width}" must be from 1 to ${ArtworkFiles.maxServeWidth}.',
+    );
+  }
+  return value;
 }
 
 int? _intParam(Map<String, String> q, String name) {
