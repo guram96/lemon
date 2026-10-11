@@ -7,7 +7,7 @@ A self-hosted retro game library: **EmulationStation meets Steam**.
 - Games can be **added and deleted on both sides**. The admin manages the server library, including uploading ROMs from a client. Any user can install and uninstall games on their own device.
 - The client UI is a **one-to-one recreation of Steam Big Picture mode**, made for controller, keyboard, and touch. The look can be swapped through UI component sets.
 
-> Status: M1–M3 are built (first run, artwork and metadata, downloads). Next is M4, launching a game. The board is `tasks.md`. Items marked **(TBD)** wait on decisions. Items marked **(Later)** are planned but out of scope for now. Design for them, but don't build them yet.
+> Status: M1–M4 are built (first run, artwork and metadata, downloads, launching a game). Next is M5, multi-device. The board is `tasks.md`. Items marked **(TBD)** wait on decisions. Items marked **(Later)** are planned but out of scope for now. Design for them, but don't build them yet.
 
 ---
 

@@ -48,7 +48,7 @@ start client on the server machine
 | **M1** ✅ | First run → Home | Setup wizard, background login, scan with live progress, Big Picture home/library/game page with generated art |
 | **M2** ✅ | Art & metadata | ScreenScraper + SteamGridDB scraping, artwork pipeline & serving, real hero/logo/capsules, file watching |
 | **M3** ✅ | Downloads | Install destinations, download queue (pause/resume, range requests), installed state, uninstall, Downloads page |
-| **M4** | Play | Emulator detection (RetroArch + cores, standalone), launch options per game/system, managed emulator manifest |
+| **M4** ✅ | Play | Emulator detection (RetroArch + cores, standalone), launch options per game/system, managed emulator manifest |
 | M5 | Multi-device | mDNS discovery, QR pairing, manual address, login screen, user & device admin |
 | M6 | Admin | Drag a folder in to add a game, with title recognition and editable metadata. Also ROM upload, game delete, artwork overrides, storage migration, server settings |
 | M7 | Polish | Search, filters, theme settings, desktop gamepad, on-screen keyboard, more component sets |
@@ -284,11 +284,61 @@ M1, M2, and M3 are done (T1–T20). A new server can be set up from the client, 
 
 `dart tool/check.dart` passed after M3.
 
-## Next
+## M4 — Play
 
-**M4 — Play.** Detect an installed emulator (RetroArch and its cores, plus standalone emulators), let the user pick one per system or per game, and launch the installed ROM. Managed emulator downloads stay behind a manifest, not hardcoded commands.
+The user's machine already has emulators. The client finds them, the user picks one for a system or for a single game, and Play starts the installed ROM. Command lines and detection paths live in a manifest (data), not in a code switch. This milestone does not download emulator binaries and does not fetch BIOS.
 
-Break M4 into tasks the same way as M3 when that work starts.
+Web has no Play button (`ClientCapabilities.canLaunchGames` is already false). Android and iOS keep the choice in the store, but detection and process launch in this milestone are desktop only (macOS, Windows, Linux).
+
+```
+Wave 1:  T21 emulator manifest + detection ─┐  T22 launch options store ─┐
+Wave 2:                                    └── T23 launch process (T21, T22)
+Wave 3:                                       T24 Play button + picker (T23)
+```
+
+### T21 — Emulator manifest and detection ✅
+**Owns:** `apps/client/lib/src/launch/emulator_manifest.dart`, `apps/client/lib/src/launch/emulator_manifest_data.dart`, `apps/client/lib/src/launch/emulator_detector.dart`, `apps/client/lib/src/launch/emulator_probe.dart`, `apps/client/lib/src/launch/emulator_probe_io.dart`, `apps/client/lib/src/launch/emulator_probe_stub.dart`, `apps/client/test/launch/emulator_detector_test.dart`. Do not edit `pubspec.yaml`.
+- The manifest is a JSON document stored as a string in `emulator_manifest_data.dart` and parsed by `EmulatorManifest.parse`. Detection paths, core→system rows, and argument templates live only there.
+- One RetroArch entry (`id: retroarch`, `kind: retroarch`) plus standalone entries for Snes9x (`snes`), mGBA (`gb`, `gbc`, `gba`), DuckStation (`psx`), PCSX2 (`ps2`), Dolphin (`gc`, `wii`), PPSSPP (`psp`), melonDS (`nds`), Flycast (`dreamcast`), Azahar (`n3ds`), and RPCS3 (`ps3`). System ids must exist on `GameSystems`.
+- Per platform `macos`, `windows`, and `linux`: executable paths (`~` is the probe home), RetroArch cores directories and core extension (`.dylib` / `.dll` / `.so`), and an args template. RetroArch args are `["-L", "{core}", "{rom}"]`. Standalone args are `["{rom}"]`. A macOS `.app` counts as found when the bundle directory exists; the executable reported is `Contents/MacOS/<bundle name>` when that file exists, otherwise the `.app` path.
+- RetroArch cores: list files in the cores directories. A file whose name starts with a manifest `match` (for example `snes9x_libretro`) and ends with the platform extension is a detected core for those systems. Cover the `GameSystems` ids that have a widely shipped core (at least nes, snes, n64, gb, gbc, gba, nds, megadrive, genesis, psx, ps2, gc, wii, psp, dreamcast, fbneo, mame, arcade). Other core files are ignored.
+- `EmulatorProbe` is synchronous and injected: `home`, `exists(path)`, `listFiles(directory)` (names only; empty when missing), `findOnPath(name)`. The IO probe uses `dart:io` and `PATH`. No shell. The stub throws if called. Conditional import so web still builds.
+- `EmulatorDetector.detect(platform)` returns installed emulators only. Android, iOS, and web return an empty list. `DetectedEmulator`: `id`, `name`, `kind`, `executable`, `args`, `systems`, and `cores` (`path`, `match`, `systems`). Standalone `systems` come from the entry. RetroArch `systems` are the union of detected cores. RetroArch with no matching cores is still returned, with empty `cores`.
+- Riverpod in the detector file: `emulatorManifestProvider`, `emulatorProbeProvider`, `detectedEmulatorsProvider` (empty when `canLaunchGames` is false). No process spawn, no UI, no edits under `install/` or `game/`.
+- Tests use a fake probe and a temp-free fixture: RetroArch present with two cores, one standalone present, one missing, a core that is not in the map ignored, `~` expanded.
+
+### T22 — Launch options store ✅ (parallel with T21)
+**Owns:** `apps/client/lib/src/launch/launch_models.dart`, `apps/client/lib/src/launch/launch_store.dart`, `apps/client/lib/src/launch/launch_store_io.dart`, `apps/client/lib/src/launch/launch_store_stub.dart`, `apps/client/test/launch/launch_store_test.dart`.
+- Device-local. Not the server API. One JSON file named `launch.json`, atomic replace, same style as `InstallStore`. Inject the directory so tests use a temp dir. No new dependency. Conditional import; the stub throws if called.
+- Do not edit anything under `install/`. `launchStoreProvider` may watch `installDirectoryProvider` for its directory. Tests override the provider with a temp directory.
+- A choice is `emulatorId` plus optional `corePath` and optional `customCommand`. `emulatorId` `custom` requires a non-empty `customCommand`. Any other id requires a non-empty `emulatorId`.
+- One choice per system id. One optional choice per game, keyed by `serverId` + `gameId`. `resolve(systemId, serverId, gameId)` returns the game choice, otherwise the system choice, otherwise null. `put` replaces. `remove` drops that key. Missing is success.
+- Riverpod: `launchStoreProvider`, `launchOptionsProvider` (`AsyncNotifier` with set/clear for system and game). No detection, no process, no UI, no game page.
+- Widget-free tests: save/reload, game choice beats system choice, clear game falls back, `custom` without a command is rejected.
+
+### T23 — Launch the installed ROM ✅ (after T21, T22)
+**Owns:** `apps/client/lib/src/launch/game_launcher.dart`, `apps/client/lib/src/launch/game_launcher_io.dart`, `apps/client/lib/src/launch/game_launcher_stub.dart`, `apps/client/test/launch/game_launcher_test.dart`.
+- Call T21 and T22. Do not edit their files. Call `resolveInstallFile` from the install store; do not edit `install/`.
+- The file to open is the first `.m3u`, else `.cue`, else `.gdi`, else `Game.files.first`, resolved under `folderFor(systemId)`. A path that escapes the folder is refused and nothing is started.
+- The game's install record must be `installed`. No folder, or not installed: return a failed result, do not start a process.
+- Argument list: the detected executable plus its args template, with `{rom}` and `{core}` replaced. A custom command is split on whitespace with double quotes, `{rom}` replaced, and the rom path appended when `{rom}` was absent. RetroArch without a `corePath` fails. Unknown `{token}` fails.
+- `Process.start` and do not wait. Inject a starter so tests never spawn a real emulator. The stub throws. Desktop only; android and ios return unsupported.
+- No UI. Do not change the macOS sandbox or entitlements. If a launch would need a new entitlement, list it under Requests.
+
+### T24 — Play button and emulator picker ✅ (after T23)
+**Owns:** the install row on `apps/client/lib/src/game/game_page.dart`, `apps/client/lib/src/launch/launch_picker.dart`, and their tests. Do not edit T21–T23 files except to call them.
+- When the game is installed and `canLaunchGames` is true, show Play as a primary `RsButton` beside Uninstall. Web never shows it.
+- With no resolved choice, Play opens the picker instead of starting. The picker lists detected emulators whose `systems` contain this game's system, and for RetroArch each detected core for that system. A custom command field is always there. "Use for this system" writes a system choice. "Only this game" writes a game choice. Both close the dialog.
+- With a choice, Play calls the launcher. A failed result is a short message on the page, not a new dialog system.
+- Focusable. `RsDialog`, `RsListRow`, `RsTextField`, `RsButton`. No hardcoded colors or sizes. Feature code imports `rs_ui`, not `rs_ui_steam`.
+
+---
+
+## Where we are
+
+M1–M4 are done (T1–T24). A desktop client can detect RetroArch and standalone emulators, remember a choice per system or per game, and start an installed ROM from the game page. Web does not show Play. Android and iOS keep the choice but do not start a process. `bash tool/macos_dmg.sh` writes `dist/RetroSteam-macos.dmg` (unsigned, client only).
+
+The sandboxed macOS client cannot see other apps or start them. `Process.start` will fail at runtime until the sandbox is dropped or another launch mechanism is chosen. Entitlements stay unchanged. `dart tool/check.dart` passed after M4.
 
 Carried out of M3, still open:
 
@@ -303,3 +353,8 @@ Carried out of M3, still open:
 - M6: drag and drop a folder to add a game. The server treats it as one game when the files match a system (including multi-file units such as `.cue`/`.bin`). A hash match fills the title and metadata; otherwise the folder name is the title. The user can always edit the title and metadata before or after it is saved. Also streamed upload, delete via catalog, artwork override browser, data-dir migration with progress, server settings UI.
 - M7: search · theme settings · desktop gamepad plugin · on-screen keyboard · Material/Cupertino/Fluent sets.
 - M8: one desktop icon launches the server, then the client on that machine (localhost). A login item starts that same app when the user signs in, so other devices can reach the library without a terminal. macOS, Windows, and Linux. The server stays headless; quitting the client leaves the server running until the user quits it from the menu.
+- **macOS DMG installer.** ✅ `bash tool/macos_dmg.sh` builds the release macOS client and packs `retro_steam.app` into `dist/RetroSteam-macos.dmg` (drag to Applications). Unsigned. The server binary stays out until M8.
+- **Controller.** Keyboard, d-pad focus, and the button map are already in `RsInputScope`: A/Enter activates, B/Esc goes back, Start and Select open menu and options, LB/RB switch tabs. Tests already send `gameButtonA` and the rest. What is missing, and what M7 means by the desktop gamepad plugin, is a plugin that turns a real gamepad (stick, d-pad, A/B/X/Y, bumpers, Start, Select) into those same intents on macOS, Windows, and Linux. Mobile and web already receive those keys when the platform delivers them. Do not add a second shortcut map.
+- **UI sounds.** Short cues for moving focus, activating, going back, and for the home hero changing from one game to the next. The clips are bundled assets, not per-screen code. A client setting turns them off. The system mute is respected. No music.
+- **Startup animation.** A short Big Picture-style intro when the client process starts, before connect or welcome. A or Esc skips it. A returning session is not held on it. Reduced motion shows a still frame.
+- **Accessibility.** Screen-reader names on cards, shelves, and buttons. Text scale follows the OS. Focus stays visible in light and dark. A reduced-motion setting skips the hero cross-fade, the startup animation, and other nonessential motion. Contrast stays on the theme tokens. No separate widget tree for assistive tech.

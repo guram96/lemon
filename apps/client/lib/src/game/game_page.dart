@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:rs_core/rs_core.dart';
@@ -9,11 +11,17 @@ import '../downloads/downloads_page.dart';
 import '../install/download_queue.dart';
 import '../install/install_models.dart';
 import '../install/install_store.dart';
+import '../launch/emulator_detector.dart';
+import '../launch/game_launcher.dart';
+import '../launch/launch_models.dart';
+import '../launch/launch_picker.dart';
+import '../launch/launch_store.dart';
 import '../library/format.dart';
 import '../library/game_art.dart';
 import '../library/library_providers.dart';
 import '../library/library_status.dart';
 import '../platform/client_capabilities.dart';
+import '../storage/credential_store.dart';
 
 /// One game. The hero is the full-width header and starts below the top bar.
 class GameDetailPage extends ConsumerWidget {
@@ -140,20 +148,93 @@ class GameDetailPage extends ConsumerWidget {
   }
 }
 
-class _InstallRow extends ConsumerWidget {
+class _InstallRow extends ConsumerStatefulWidget {
   const _InstallRow({required this.game});
 
   final Game game;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_InstallRow> createState() => _InstallRowState();
+}
+
+class _InstallRowState extends ConsumerState<_InstallRow> {
+  String? _serverId;
+  var _credentialsReady = false;
+  String? _launchNote;
+
+  @override
+  void initState() {
+    super.initState();
+    if (ref.read(clientCapabilitiesProvider).canLaunchGames) {
+      unawaited(_loadServerId());
+    }
+  }
+
+  Future<void> _loadServerId() async {
+    final stored = await ref.read(credentialStoreProvider).load();
+    if (!mounted) return;
+    setState(() {
+      _serverId = stored.serverId;
+      _credentialsReady = true;
+    });
+  }
+
+  Future<void> _onPlay(LaunchChoice? choice) async {
+    final game = widget.game;
+    if (choice == null) {
+      await showLaunchPicker(context: context, ref: ref, game: game);
+      return;
+    }
+    final caps = ref.read(clientCapabilitiesProvider);
+    final folder = ref
+        .read(destinationsProvider)
+        .value
+        ?.folderFor(game.systemId);
+    final record = _recordFor(game.id, ref.read(downloadQueueProvider));
+    final detected = ref.read(detectedEmulatorsProvider);
+    final result = await ref
+        .read(gameLauncherProvider)
+        .launch(
+          platform: caps.platform,
+          game: game,
+          record: record,
+          folder: folder,
+          choice: choice,
+          detected: detected,
+        );
+    if (!mounted) return;
+    setState(() {
+      _launchNote = switch (result) {
+        LaunchStarted() => null,
+        LaunchFailed(:final message) => message,
+        LaunchUnsupported() => "This device can't start an emulator.",
+      };
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final game = widget.game;
     final t = context.rsTokens;
     final text = Theme.of(context).textTheme;
+    final caps = ref.watch(clientCapabilitiesProvider);
     final folder = ref
         .watch(destinationsProvider)
         .value
         ?.folderFor(game.systemId);
     final record = _recordFor(game.id, ref.watch(downloadQueueProvider));
+    final showLaunch =
+        record?.phase == InstallPhase.installed && caps.canLaunchGames;
+
+    LaunchOptions? loaded;
+    if (showLaunch) {
+      final options = ref.watch(launchOptionsProvider);
+      if (options case AsyncData<LaunchOptions>(:final value)) {
+        loaded = value;
+      }
+    }
+    final choice = loaded?.resolve(game.systemId, _serverId ?? '', game.id);
+    final playEnabled = loaded != null && _credentialsReady;
 
     final Widget? button;
     final String? note;
@@ -184,7 +265,7 @@ class _InstallRow extends ConsumerWidget {
         onPressed: () =>
             ref.read(downloadQueueProvider.notifier).uninstallGame(game.id),
       );
-      note = null;
+      note = _launchNote;
     } else {
       // Queued, downloading, paused, or failed: the job already exists.
       button = null;
@@ -196,7 +277,22 @@ class _InstallRow extends ConsumerWidget {
       runSpacing: t.spacing.sm,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (showLaunch)
+          RsButton(
+            label: 'Play',
+            icon: Icons.play_arrow_rounded,
+            variant: RsButtonVariant.primary,
+            onPressed: playEnabled ? () => unawaited(_onPlay(choice)) : null,
+          ),
         ?button,
+        if (showLaunch)
+          RsButton(
+            label: 'Emulator',
+            variant: RsButtonVariant.standard,
+            onPressed: () => unawaited(
+              showLaunchPicker(context: context, ref: ref, game: game),
+            ),
+          ),
         if (note != null)
           Text(note, style: text.bodyLarge?.copyWith(color: t.textSecondary)),
       ],

@@ -49,3 +49,6 @@ app.*.map.json
 
 # Server runtime data (local dev)
 apps/server/.data/
+
+# Disk images from tool/macos_dmg.sh
+dist/
