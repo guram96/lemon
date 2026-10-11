@@ -49,10 +49,10 @@ start client on the server machine
 | **M2** ✅ | Art & metadata | ScreenScraper + SteamGridDB scraping, artwork pipeline & serving, real hero/logo/capsules, file watching |
 | **M3** ✅ | Downloads | Install destinations, download queue (pause/resume, range requests), installed state, uninstall, Downloads page |
 | **M4** ✅ | Play | Emulator detection (RetroArch + cores, standalone), launch options per game/system, managed emulator manifest |
-| M5 | Multi-device | mDNS discovery, QR pairing, manual address, login screen, user & device admin |
-| M6 | Admin | Drag a folder in to add a game, with title recognition and editable metadata. Also ROM upload, game delete, artwork overrides, storage migration, server settings |
-| M7 | Polish | Search, filters, theme settings, desktop gamepad, on-screen keyboard, more component sets |
-| M8 | One app | One desktop icon starts the server and the client together. The same app can start when the user logs in |
+| M5 | Multi-device | A second device on the LAN pairs and logs in. The admin can revoke it and can create a regular user |
+| M6 | Admin library | Add one game, edit its title and metadata, delete it, and save scraper credentials. Overrides, moving the data folder, and reopening setup are later tasks in this milestone |
+| M7 | Polish | Search, a saved theme, a gamepad on the existing button map, an on-screen keyboard, and an accessibility pass |
+| M8 | One app | The macOS app drops the sandbox, then a disk image starts the bundled server and opens the library. Login item, Windows, and Linux are separate tasks |
 
 Status legend: ⬜ todo · 🟦 in progress · ✅ done · ⛔ blocked
 
@@ -338,23 +338,335 @@ Wave 3:                                       T24 Play button + picker (T23)
 
 M1–M4 are done (T1–T24). A desktop client can detect RetroArch and standalone emulators, remember a choice per system or per game, and start an installed ROM from the game page. Web does not show Play. Android and iOS keep the choice but do not start a process. `bash tool/macos_dmg.sh` writes `dist/RetroSteam-macos.dmg` (unsigned, client only).
 
-The sandboxed macOS client cannot see other apps or start them. `Process.start` will fail at runtime until the sandbox is dropped or another launch mechanism is chosen. Entitlements stay unchanged. `dart tool/check.dart` passed after M4.
+`dart tool/check.dart` passed after M4. macOS Play can start other programs: T53 removed the App Sandbox.
 
-Carried out of M3, still open:
+The disk image now contains `Contents/MacOS/rs_server` and `Contents/lib/libsqlite3.dylib`. Opening the app starts that server when localhost is quiet. `tool/macos_dmg.sh` ad-hoc re-signs the app after those files are copied, and `codesign --verify` passed on the image. Still open on T54: a Quit Server menu item. Quitting the window already leaves the server running.
 
-- Android and iOS have no default install directory. They need `path_provider` (or the same idea) wired into `installDirectoryProvider`.
-- A folder the user picks on macOS needs a security-scoped bookmark. The app is sandboxed.
-- The Downloads page sets the global folder only. The store already supports a folder per system.
-- HTTP suffix ranges (`bytes=-N`) are rejected with `416`.
+## Decisions
 
-## Backlog (after M4)
+- **Desktop macOS drops the App Sandbox.** Bookmarks would cover a picked download folder and would still leave Play and "start the bundled server" broken. T53 removes the sandbox entitlement. There is no bookmark task.
+- **One app means the client starts a server that lives inside the app.** A second copy is not started when port 47320 is already open. Quitting the window leaves that server running. A menu item stops it.
+- **Adding a game is one game, not a library import.** A dropped folder that the scanner would split into two games is rejected. ScreenScraper runs once to suggest a title; the admin's saved title is what gets stored.
+- **System tabs shipped in M1.** M7 search is the remaining browse gap. Extra filters, and the Material, Cupertino, and Fluent component sets, are Later.
 
-- M5: mDNS advertise/browse · pairing tokens + QR (show/scan) · manual address · users admin · devices admin.
-- M6: drag and drop a folder to add a game. The server treats it as one game when the files match a system (including multi-file units such as `.cue`/`.bin`). A hash match fills the title and metadata; otherwise the folder name is the title. The user can always edit the title and metadata before or after it is saved. Also streamed upload, delete via catalog, artwork override browser, data-dir migration with progress, server settings UI.
-- M7: search · theme settings · desktop gamepad plugin · on-screen keyboard · Material/Cupertino/Fluent sets.
-- M8: one desktop icon launches the server, then the client on that machine (localhost). A login item starts that same app when the user signs in, so other devices can reach the library without a terminal. macOS, Windows, and Linux. The server stays headless; quitting the client leaves the server running until the user quits it from the menu.
-- **macOS DMG installer.** ✅ `bash tool/macos_dmg.sh` builds the release macOS client and packs `retro_steam.app` into `dist/RetroSteam-macos.dmg` (drag to Applications). Unsigned. The server binary stays out until M8.
-- **Controller.** Keyboard, d-pad focus, and the button map are already in `RsInputScope`: A/Enter activates, B/Esc goes back, Start and Select open menu and options, LB/RB switch tabs. Tests already send `gameButtonA` and the rest. What is missing, and what M7 means by the desktop gamepad plugin, is a plugin that turns a real gamepad (stick, d-pad, A/B/X/Y, bumpers, Start, Select) into those same intents on macOS, Windows, and Linux. Mobile and web already receive those keys when the platform delivers them. Do not add a second shortcut map.
-- **UI sounds.** Short cues for moving focus, activating, going back, and for the home hero changing from one game to the next. The clips are bundled assets, not per-screen code. A client setting turns them off. The system mute is respected. No music.
-- **Startup animation.** A short Big Picture-style intro when the client process starts, before connect or welcome. A or Esc skips it. A returning session is not held on it. Reduced motion shows a still frame.
-- **Accessibility.** Screen-reader names on cards, shelves, and buttons. Text scale follows the OS. Focus stays visible in light and dark. A reduced-motion setting skips the hero cross-fade, the startup animation, and other nonessential motion. Contrast stays on the theme tokens. No separate widget tree for assistive tech.
+## Now
+
+M5 wave 1 can run as four agents at once: **T25, T26, T27, T30**. They do not share files.
+
+These touch other files and can run beside that wave: **T34** (scraper screen), **T53** (sandbox), **T58** (phone install folder), **T59** (per-system folder).
+
+T35, T36, T37, T41, T42, T44, and T46 edit `rs_core` and `RsApiClient`, same as T25 and T30. They wait until **T33**.
+
+---
+
+## M5 — Multi-device
+
+A second device on the LAN gets a device token, then logs in with the account it already has. Joining and logging in stay two steps. The login page, `POST /devices/local`, `PairingPayload`, and `DeviceRepo.revoke` already exist. This milestone does not add password change, device rename, or remote access.
+
+```
+Wave 1:  T25 pairing API | T26 mDNS advertise | T27 mDNS browse | T30 users API
+Wave 2:  T28 show QR (T25) | T29 join (T25, T27) | T31 devices screen (T25) | T32 users screen (T30)
+Wave 3:  T33 integration (product owner)
+```
+
+### T25 — Pairing tokens and the device list ⬜
+**Owns:** new DTOs under `packages/rs_core/lib/src/auth/`, route constants in `api_routes.dart`, the new `RsApiClient` methods, the server handlers, `apps/server/test/devices/`. No Flutter UI. No mDNS. Do not edit `docs/`.
+- `POST /devices/pairing` (admin session) → `PairingOffer { token, expiresAt, serverId, hosts, port }`. Token is 32 random bytes, base64url, stored as SHA-256. Single use. Expires 5 minutes after creation. Creating an offer retires any offer that has not been used. `hosts` is the non-loopback addresses the server is listening on, skipping link-local. Empty list → `409 conflict` (bound to loopback only; nothing to pair). The QR string is the existing `PairingPayload` URI. This task does not draw it.
+- `POST /devices/pair` takes no device header and no session. Body `PairDeviceRequest { token, deviceName, platform }` → `DeviceJoinResult` (`201`) via `DeviceRepo.create`. Unknown token → `401 invalid_credentials`. Expired or already used → `410` with `ApiErrorCodes.expired` (`expired`). Same rate limit as login. The offer is spent only after the device row is stored.
+- `GET /devices` (admin) → `List<Device>`. `Device { id, name, platform, createdAt, lastSeenAt, revoked }`. Include revoked rows. Never return a token or a hash.
+- `DELETE /devices/{id}` (admin) → `204`, using `DeviceRepo.revoke` so that device's sessions die. Unknown id → `404`. Revoking the calling device is allowed.
+- `RsApiClient`: `createPairingOffer()`, `pairDevice(...)`, `devices()`, `revokeDevice(id)`.
+- Tests over HTTP: pair once, second redeem fails, expired fails, list, revoke makes `GET /auth/me` with that device token return `401`.
+
+### T26 — Advertise the server on the LAN ⬜
+**Owns:** `apps/server/lib/src/discovery/`, `apps/server/test/discovery/`. No client. No pairing routes.
+- When the server is configured and not bound to loopback only, advertise `Discovery.serviceType` (`_retrosteam._tcp`) on the listen port.
+- TXT: `id` (server id) and `name` (server name). No token.
+- Stop advertising on shutdown. Loopback-only bind: do not advertise.
+- Call an advertiser interface. Tests use a fake and assert start, stop, and the TXT map. The suite must pass with no network.
+
+### T27 — Browse for servers ⬜
+**Owns:** `apps/client/lib/src/discovery/`, `apps/client/test/discovery/`. No connect-page edits. No server edits.
+- `discoveredServersProvider` → `List<DiscoveredServer> { serverId, name, host, port }` from `Discovery.serviceType`. Drop a record with no host or port.
+- The browser is injected. Tests: one service appears, one without a port is dropped, cancel stops the browse. No network.
+- Web: the provider is an empty list. No error page.
+
+### T28 — Admin shows a pairing QR ⬜ (after T25)
+**Owns:** `apps/client/lib/src/devices/pairing_page.dart`, its route, the nav entry, its tests. No scanner. No user list.
+- Admin only. A regular user does not get the nav entry (`User.role`).
+- Show a QR of `PairingPayload(...).toUri()`, the first `host:port` as text, the time left, and Refresh. Refresh requests a new offer; the old code is dead.
+- `409`: say the server is only listening on this computer. Do not draw a QR.
+- A QR library may be added to the client `pubspec.yaml`. Focusable. Widget test with a fake client: the offer is shown, Refresh asks again.
+
+### T29 — Join from another device ⬜ (after T25, T27)
+**Owns:** the connect / join flow under `apps/client/lib/src/connection/`, a `canScanQr` flag on `ClientCapabilities` (true for android and ios, false otherwise), and tests. No admin QR page.
+- Replace the "pairing arrives in a later version" branch in `connection_provider.dart`.
+- With no device token, the connect page offers:
+  - rows from `discoveredServersProvider` (activating a row sets that address)
+  - a host and port field (default port `Discovery.defaultPort`)
+  - a pairing-link field. `PairingPayload.tryParse`. Try `hosts` in order. The first host whose `GET /server` returns the same `serverId` is paired with `pairDevice`. Store the device token, then the existing login page.
+- Camera scan only when `canScanQr` is true. Desktop and web paste the link.
+- A bad or spent token shows the API message and stays on the page.
+- Loopback `POST /devices/local` stays as it is.
+- Widget tests with fakes: a pasted link joins, an unknown token shows the error, a discovered row sets the address.
+
+### T30 — Users API ⬜
+**Owns:** `CreateUserRequest` in `rs_core`, `RsApiClient` user methods, server user routes, `apps/server/test/users/`. No UI.
+- `GET /users` (admin) → `List<User>`. No password hash.
+- `POST /users` (admin) body `CreateUserRequest { username, password }` → `User` (`201`). Role is always `user`. Password ≥ 8, otherwise `400`. Username taken (case-insensitive, already how `UserRepo` works) → `409 conflict`. This route cannot create an admin.
+- `DELETE /users/{id}` (admin) → `204`. The admin id → `409` and the row stays (`UserRepo.delete` already refuses). Unknown → `404`. That user's sessions go with the row.
+- No password change and no rename.
+- Tests: create, duplicate, short password, delete a user, delete the admin fails, a regular session gets `403`.
+
+### T31 — Devices screen ⬜ (after T25)
+**Owns:** `apps/client/lib/src/devices/devices_page.dart`, its route, its tests. The pairing page stays T28; this page may navigate there and does not draw a QR. No user list.
+- Admin only.
+- List name, platform, and last seen. A revoked row is labeled revoked and has no Revoke action.
+- Revoke confirms with `RsDialog`, then `revokeDevice`. Revoking this device ends on the existing unauthorized logout.
+- Focusable. Widget test: a fake list, confirm, revoke called.
+
+### T32 — Users screen ⬜ (after T30)
+**Owns:** `apps/client/lib/src/users/`, its route, its tests. No device list.
+- Admin only. Nav item is hidden for `UserRole.user`.
+- List username and role. Create asks for username, password, and confirm (password ≥ 8, confirm matches) and posts on submit. Delete confirms. The admin row has no delete.
+- Focusable. Widget test: create calls the client, the admin row has no delete.
+
+### T33 — M5 integration ⬜ (product owner, after T25–T32)
+- `dart tool/check.dart` green. Copy the T25 and T30 routes into `docs/api-contract.md`.
+- Walk a second client: paste a pairing link, log in as admin, revoke a device, create a user, log in as that user, confirm the admin nav is absent.
+
+---
+
+## M6 — Admin library
+
+The first slice is credentials, add, edit, and delete. An admin can put one game into an existing root and correct its title. Artwork overrides, moving the data folder, and reopening setup are in this milestone and are not part of that slice.
+
+```
+Wave 1:  T34 scraper screen (API already exists; can start during M5)
+Wave 2:  T35 delete API ─┐  T36 metadata API ─┐  T37 add-game API ─┐     (after T33)
+Wave 3:                  ├── T38 delete button │                    ├── T40 add-game screen
+                         └── T39 edit screen ──┘
+Wave 4:  T41 upload override API ─┐  T42 artwork candidates API ─┐
+Wave 5:                           └── T43 artwork picker (T41, T42)
+Wave 6:  T44 migrate data dir API ─┐  T46 roots API ─┐
+Wave 7:                            ├── T45 migration screen (T44)
+                                   └── T47 reopen setup (T44, T46)
+```
+
+### T34 — Scraper credentials screen ⬜
+**Owns:** the client scraper settings page and its tests. `GET`/`PUT /settings/scrapers` already exist. No new routes.
+- Admin only.
+- Two blocks: ScreenScraper (dev id, dev password, username, password) and SteamGridDB (API key). Save sends a `PUT` of the fields the admin filled. A field left blank is omitted, so the stored secret stays. A Clear control sends `""` for that provider and clears it.
+- The page shows the booleans from `GET` ("Saved" / "Not set"). It does not display stored secrets.
+- Focusable. Widget test with a fake client: save sends only the filled provider, Clear sends an empty string.
+
+### T35 — Delete a game ⬜ (after T33)
+**Owns:** `DELETE /library/games/{id}`, `RsApiClient.deleteGame`, server tests. No game page.
+- Admin. `204` when the catalog row is gone. Unknown id → `404`. Regular user → `403`.
+- Online writable root: delete only that game's `game_files`, each path resolved through `PathGuard`, then the catalog row and its artwork rows. A path that escapes the root is left on disk.
+- Read-only root: `409 conflict`. Row kept. No file deleted.
+- Offline root: delete the catalog row only, still `204`. The files are not on this machine.
+- Tests in a temp root: the game's files are gone, a sibling ROM remains, a read-only root is rejected.
+
+### T36 — Edit metadata ⬜ (after T33)
+**Owns:** `PATCH /library/games/{id}`, `PatchGameRequest`, `RsApiClient.patchGame`, server tests. No page. Do not change `ScrapeService`.
+- Admin. Optional `title`, `description`, `developer`, `publisher`, `releaseYear`. Omitted means leave the stored value. An empty title → `400`. Returns the `Game`.
+- Does not change files, hashes, or artwork. There is no "clear this field" in this task. Scrape already fills only nulls, so a value saved here stays.
+- Tests: title changes, an omitted field stays, empty title is rejected, a regular user gets `403`.
+
+### T37 — Add one game ⬜ (after T33)
+**Owns:** the import routes, their DTOs, `RsApiClient` methods, server tests. No Flutter. No zip or 7z.
+- Admin. The target is an existing root. Read-only or offline → `409` before any byte is kept.
+- `POST /library/games/imports` multipart: `rootId`, `systemId`, optional `folderName`, and one or more file parts. Each filename is a basename. A separator, `..`, or a Windows reserved name → `400 path_invalid`, and any temp files already written are deleted.
+- Stream each part into that root's `tmp/<importId>/<systemId>/`. Check free space first. Reject a part over 8 GiB or an import over 16 GiB. The extension must be one `GameSystems` allows for `systemId`.
+- Run the existing scanner on that temp root. It must produce exactly one game (a `.cue`/`.bin`, `.gdi`, or `.m3u` unit counts as one). Zero games or more than one → `409`, delete the temp import.
+- Response `GameImport { importId, suggestedTitle, fileNames, totalBytes, expiresAt }`. Suggested title, in order: one `ScreenScraperClient` lookup by hash when credentials exist and the lookup hits; else the catalog title for that hash; else `folderName`; else the scanner's name for the primary file. A lookup miss or error falls through. No SteamGridDB call on this route.
+- `POST /library/games/imports/{id}/commit` body `{ title, description?, developer?, publisher?, releaseYear? }`. `title` is required and non-empty. Move the temp files into `<root>/<systemId>/`, upsert through `GameRepo` with the scanner's identity, write the metadata from the body, delete the import record. `201` and the `Game`. Then `ScrapeService.start()` so artwork still fills in. A second commit → `404`.
+- `DELETE /library/games/imports/{id}` deletes the temp files. An import older than 30 minutes is deleted on the next prepare.
+- Tests: cue+bin is one import, a bad extension is rejected, two games in one drop are rejected, commit writes only under the system folder, the committed title is the body title, a read-only root is rejected.
+
+### T38 — Delete on the game page ⬜ (after T35)
+**Owns:** the delete control on `game_page.dart` and its test. No server edits.
+- Admin only. A regular user does not see it.
+- Confirm with `RsDialog`, naming the game. `409` shows the API message and stays. Success leaves for the library.
+- Focusable. No other change to the page.
+
+### T39 — Edit metadata on the game page ⬜ (after T36)
+**Owns:** the edit dialog and its test. No server edits. No file renaming.
+- Admin only.
+- Fields: title, description, developer, publisher, year, prefilled from `Game`. Empty title is blocked in the form. Save calls `patchGame` with those fields.
+- Focusable. Widget test: the typed title is what the client sends.
+
+### T40 — Add a game from the client ⬜ (after T37)
+**Owns:** `apps/client/lib/src/library/add_game_page.dart`, the library entry point, tests. No server edits.
+- Admin only.
+- One flow: choose files, edit the suggestion, commit. Desktop can drop a folder (top-level files only, plus `folderName`) or pick files. Mobile and web use the file picker. Web is included; upload is an admin task.
+- The root picker lists writable online roots. Then system, then the editable title and metadata from `GameImport`. Commit sends the edited title. Cancel deletes the import.
+- A `409` (more than one game, read-only root) shows the API message. The client does not try to split a folder into games.
+- Focusable. Widget test with a fake client: the chosen names are the import, and the edited title is the commit body.
+
+### T41 — Upload or clear an artwork override ⬜ (after T33)
+**Owns:** `PUT` and `DELETE /library/games/{id}/artwork/{kind}`, client methods, server tests. No candidate list. No picker UI.
+- Admin. `kind` is an `ArtworkKind`.
+- `PUT` with a raw image body: size-capped by the existing image pipeline, re-encoded, stored with `is_override = 1`. `204` or the updated `Game`. A scrape must still refuse to replace that row (already true; do not change that rule).
+- `DELETE` removes that kind's override so a later scrape may fill it. The ROM stays. Missing row → `204`.
+- Tests with a generated image: upload then delete, and a following scraped `putScraped` is allowed only after the delete.
+
+### T42 — Artwork candidates ⬜ (after T33)
+**Owns:** `GET /library/games/{id}/artwork/candidates` and `PUT` that selects one, client methods, server tests. No upload-from-disk (that is T41). No picker UI.
+- Admin. Query `kind`. Response: up to 20 `{ source, remoteId, previewUrl }` from ScreenScraper and SteamGridDB using stored credentials. A provider with no credentials is skipped. Both missing → an empty list, `200`.
+- `PUT /library/games/{id}/artwork/{kind}` JSON `{ remoteId }` downloads that image through the existing pipeline and stores it as an override.
+- Tests use fake scraper clients. No live network.
+
+### T43 — Artwork picker ⬜ (after T41, T42)
+**Owns:** the game-page artwork controls and their tests. No server edits.
+- Admin only. One dialog per `ArtworkKind`: candidates from T42, plus upload from T41, plus clear.
+- Choosing a candidate or a file updates the hero or card after the library refresh. Clear calls DELETE.
+- Focusable. Widget test with a fake client for select, upload, and clear.
+
+### T44 — Move the data directory ⬜ (after T33)
+**Owns:** the migration routes, a `migrationProgress` `ServerEvent`, client method, server tests. No wizard. ROM roots are not copied.
+- Admin, and loopback only (same check as `POST /setup`). A remote client gets `403 loopback_only`.
+- `POST /storage/migration` `{ destination, mode: copy | move }` → `202`. Progress on the existing WebSocket: `migrationProgress { phase, bytesDone, bytesTotal, error }`, throttled like scan progress.
+- Copies or moves the database, `artwork/`, and `cache/`. The bootstrap config starts pointing at the new directory only after the copy has finished and the new database opens. A `move` deletes the old directory only after that swap.
+- A destination that already has a data marker is adopted when the marker's server id matches. A different id → `409`, source left in place.
+- `POST /storage/migration/cancel` before the config swap keeps the old directory as the live one. After the swap, cancel is `409`.
+- Tests with temp dirs and a few small files. No UI.
+
+### T45 — Migration screen ⬜ (after T44)
+**Owns:** the client migration screen and its test. Shown only when `ServerConnection.isLocal` and the user is admin. No root editing.
+- Picks a destination with the existing folder browser, chooses copy or move, confirms, and shows `RsProgressBar` from `migrationProgress`.
+- Cancel calls the cancel route and returns to the library when the server accepts it.
+- Widget test with a fake event stream.
+
+### T46 — Add or remove a library root ⬜ (after T33)
+**Owns:** `POST` and `DELETE /library/roots`, client methods, server tests. No wizard. Does not delete ROM files.
+- Admin. `POST` body `{ path }` creates the marker, stores the root, and starts a scan. A read-only tree is allowed and saved as `readOnly` (browse and download already work). `permissionDenied` → `403` with the path-check payload the setup UI already understands.
+- `DELETE /library/roots/{id}` removes that root's catalog rows and, when the disk is writable, the marker. ROM files stay. An offline root can be removed. Unknown id → `404`.
+- Tests: add a temp tree, games show up after the scan, delete drops the rows and leaves the files.
+
+### T47 — Reopen setup ⬜ (after T44, T46)
+**Owns:** the client wizard that edits an already configured server, and its tests. No `POST /setup`. No new server routes.
+- Admin, and only when `ServerConnection.isLocal`. A regular user and a remote client do not see the entry.
+- Steps, on `RsWizardFrame`: data folder (current path shown), library roots (current list, add and remove through T46), confirm (a list of what will change). The account step is absent.
+- Cancel pops to the library and calls nothing that writes.
+- A new data folder runs T45's migration and waits until it finishes. The old database and artwork are not deleted by this wizard (`move` is the admin's choice on that screen).
+- Confirm applies root adds and removes, which scan on their own via T46.
+- Widget test: cancel sends no mutation; confirm calls the root and migration clients with the edited values.
+
+---
+
+## M7 — Polish
+
+Search, theme, gamepad, keyboard, and accessibility are five tasks. The system tabs from M1 stay the filter. New component sets are Later.
+
+```
+Wave 1:  T48 search  |  T49 theme  |  T50 gamepad  |  T52 accessibility
+Wave 2:  T51 on-screen keyboard (T50)
+```
+
+### T48 — Search ⬜
+**Owns:** the library search field and its test. `GET /library/games?q=` already exists. No new endpoint.
+- A text field on the library page. Debounce, then pass `q`. Empty clears it. The system tab and the query both apply.
+- Typing must keep working (no global letter shortcut). Focusable.
+- Widget test: a query is passed to the games provider, clearing it fetches the unfiltered page.
+
+### T49 — Theme settings ⬜
+**Owns:** `theme_settings_provider.dart` (drop the persist TODO), a theme settings page, its test. `RsThemeSettings` already has `mode`, `accent`, and JSON.
+- Save the settings locally, next to the other client JSON. Relaunch reads them back.
+- Page: dark / light / system, and the accent. Follow the theme tokens. Focusable.
+- Widget-free test for save and reload, plus a widget test that changing mode updates `themeSettingsProvider`.
+
+### T50 — Desktop gamepad ⬜
+**Owns:** the gamepad plugin wiring under `apps/client/lib/src/input/`, and tests. No new intent and no second shortcut map.
+- On macOS, Windows, and Linux, a connected gamepad produces the intents `RsInputScope` already handles: A activate, B back, Start menu, Select options, LB/RB tab, d-pad and stick as directional focus.
+- Mobile and web stay on the keys the platform already delivers.
+- Tests feed a fake gamepad event and expect the existing intent, not a new key map.
+
+### T51 — On-screen keyboard ⬜ (after T50)
+**Owns:** `apps/client/lib/src/input/onscreen_keyboard.dart` and its test. No change to `RsTextField`'s contract beyond what the keyboard needs to type into the focused field.
+- Shown when a text field is focused and the last directional input was the gamepad from T50. A physical key hides it.
+- It inserts characters into the focused field. A done key closes it. Focusable, and it does not trap B (B still goes back).
+- Widget test: gamepad focus on a field shows it, a letter key hides it, done closes it.
+
+### T52 — Accessibility pass ⬜
+**Owns:** semantics and motion on the home, library, and game pages, the existing buttons those pages use, and tests. No startup animation and no sound.
+- Screen-reader names on game cards, shelves, and the primary buttons (Play, Install, and the admin actions once they exist).
+- Text scale follows the OS. Focus ring stays visible in light and dark, using the theme tokens.
+- Reduced motion: the hero cross-fade is a cut. No second widget tree.
+- Widget test: a card exposes its title, and the reduced-motion flag skips the fade.
+
+---
+
+## M8 — One app
+
+macOS first, because that is the broken disk image. Windows and Linux copy T54 after it works. The server stays a headless process either way.
+
+```
+Wave 1:  T53 drop the macOS sandbox          (can start during M5)
+Wave 2:  T54 macOS app starts the bundled server (T53)
+Wave 3:  T55 macOS login item (T54)  |  T56 Windows (T54)  |  T57 Linux (T54)
+```
+
+### T53 — Drop the macOS App Sandbox ✅
+**Owns:** `apps/client/macos/Runner/DebugProfile.entitlements`, `Release.entitlements`, and a note in the client README only if one already mentions the sandbox. No server binary. No DMG script change beyond what the entitlement edit implies.
+- Remove `com.apple.security.app-sandbox`. Keep `com.apple.security.network.client`.
+- After this, `Process.start` for Play and writes to a folder the user picked are allowed. Do not add security-scoped bookmarks.
+- Verify with `flutter build macos` (or `flutter run -d macos` if a display is available) that the app still builds.
+
+### T54 — macOS app starts the bundled server 🟦 (after T53)
+**Owns:** `tool/macos_dmg.sh`, the client startup path that launches the server, a Quit Server menu item, and tests that do not require a GUI. This is the "DMG shows Server not found" fix.
+- The script builds the server binary and places it inside `retro_steam.app`. The DMG is still unsigned, drag-to-Applications.
+- On startup, if `http://127.0.0.1:47320/api/v1/server` does not answer, start that binary and wait until it does (a bounded timeout, then the existing unreachable page). If it already answers, do not start a second process.
+- Quitting the window leaves the server running. A menu item stops the server this app started.
+- A test can assert the launch decision with a fake process starter: quiet port starts one process, a live port starts none.
+
+### T55 — Start at login on macOS ⬜ (after T54)
+**Owns:** the login-item setting and the macOS registration. No Windows or Linux.
+- One client setting, "Start Retro Steam at login", default off.
+- On registers this app as a login item. Off removes it. Launching the app is enough: T54 starts the server.
+- Test the on/off decision with a fake registrar. Do not require a real login session in CI.
+
+### T56 — Windows one app ⬜ (after T54)
+**Owns:** the Windows packaging script and the same startup behavior as T54. No login item.
+- The Windows build contains the server binary. Quiet port starts it, a live port does not, quitting the window leaves it running, a menu item stops it.
+- Reuse the T54 starter behind a per-platform spawn. Do not copy a second policy.
+
+### T57 — Linux one app ⬜ (after T54)
+**Owns:** the Linux packaging script and the same startup behavior as T54. No login item.
+- Same rules as T56.
+
+---
+
+## Open gaps
+
+Not a milestone. Safe to pick up without waiting for M5, except where a task says otherwise.
+
+### T58 — Phone and tablet install folder ⬜
+**Owns:** `installDirectoryProvider` for android and ios, and a test. Desktop paths stay as they are.
+- Add `path_provider` (or the existing equivalent) and pass the app-support directory in. The web stub still throws if called.
+- Test that android and ios resolve a non-null directory when the provider is given a fake path.
+
+### T59 — Per-system install folder ⬜
+**Owns:** the Downloads page control and its test. `InstallStore.folderFor` already honors an override. No store rewrite.
+- The page keeps the global folder. It adds a row per system that has an installed game or an override: the current folder, and a picker that calls the existing per-system setter. Clearing the row returns that system to the global folder.
+- Focusable. Widget test: setting `snes` does not change the global folder.
+
+---
+
+## Later — do not build
+
+Designed only. No task number until a milestone picks one up.
+
+- **Remote access** over DNS. Needs TLS and a stronger auth story. LAN pairing must not assume a trusted network forever, and it also must not grow a certificate stack now.
+- **More than one server** at a time. The client keeps a server id so this can be added. One active server for now.
+- **Save sync**, and cloud backup of server saves.
+- **Managed emulator downloads**, and whether those emulators may fetch BIOS from the server **(TBD)**.
+- **Material, Cupertino, and Fluent component sets.** Each is a package that implements `RsComponentSet`. Feature code already depends on `rs_ui` only.
+- **UI sounds.** Bundled cues for focus move, activate, back, and the home hero changing. A client setting turns them off. System mute is respected. No music.
+- **Startup animation.** A short intro before connect or welcome. A or Esc skips it. A returning session is not held on it. Reduced motion shows a still frame.
+- **HTTP suffix ranges** (`bytes=-N`). Resume already sends `bytes=<received>-`. Suffix ranges stay `416`.
+- **Zip and 7z ingest.** When it exists, guard against zip-slip and decompression bombs.
+- **Port and bind address** edited from the client.
+- **Password change and device rename.**
+- **Filters beyond the system tabs and the search box.** Year, player count, and installed-only wait until search has been used.

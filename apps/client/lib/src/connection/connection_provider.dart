@@ -9,8 +9,15 @@ import 'package:rs_core/rs_core.dart';
 import '../platform/client_capabilities.dart';
 import '../session/session_provider.dart';
 import '../storage/credential_store.dart';
+import 'local_server.dart';
 import 'server_address.dart';
 import 'unauthorized_interceptor.dart';
+
+/// How long to re-probe after this process starts the bundled server.
+const _localServerProbeFor = Duration(seconds: 5);
+
+/// Pause between those probes. The first probe runs immediately.
+const _localServerProbeEvery = Duration(milliseconds: 200);
 
 enum ConnectionStatus {
   /// Probing the saved (or local) server.
@@ -155,8 +162,8 @@ class ConnectionNotifier extends Notifier<ServerConnection> {
     );
 
     try {
-      final info = await client.getServerInfo();
-      if (stale()) return;
+      final info = await _readServerInfo(client, uri, stale);
+      if (stale() || info == null) return;
 
       if (creds.serverId != null && creds.serverId != info.serverId) {
         // A different server: old tokens mean nothing here.
@@ -245,6 +252,39 @@ class ConnectionNotifier extends Notifier<ServerConnection> {
         status: ConnectionStatus.unreachable,
         error: 'Could not talk to ${displayAddress(uri)}: $e',
       );
+    }
+  }
+
+  /// `GET /server`, starting the bundled server once when [uri] is loopback
+  /// and nothing is listening.
+  ///
+  /// Returns null when this attempt has been superseded. A missing binary
+  /// leaves the original unreachable error in place.
+  Future<ServerInfo?> _readServerInfo(
+    RsApiClient client,
+    Uri uri,
+    bool Function() stale,
+  ) async {
+    try {
+      return await client.getServerInfo();
+    } on ApiException catch (e) {
+      if (!e.isUnreachable || !isLoopbackUri(uri)) rethrow;
+      final started = await ref.read(localServerProvider).start();
+      if (stale()) return null;
+      if (!started) rethrow;
+
+      final deadline = DateTime.now().add(_localServerProbeFor);
+      while (true) {
+        if (stale()) return null;
+        try {
+          return await client.getServerInfo();
+        } on ApiException catch (again) {
+          if (!again.isUnreachable || !DateTime.now().isBefore(deadline)) {
+            rethrow;
+          }
+        }
+        await Future<void>.delayed(_localServerProbeEvery);
+      }
     }
   }
 }

@@ -1,5 +1,7 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rs_client/src/connection/connection_provider.dart';
+import 'package:rs_client/src/connection/local_server.dart';
 import 'package:rs_client/src/connection/server_address.dart';
 import 'package:rs_client/src/session/session_provider.dart';
 import 'package:rs_client/src/storage/credential_store.dart';
@@ -180,4 +182,123 @@ void main() {
       expect(isLoopbackUri(Uri.parse('http://192.168.0.2:1')), isFalse);
     });
   });
+
+  group('bundled local server', () {
+    test('an answering server is not started', () async {
+      final api = FakeApiClient(info: serverInfo());
+      final local = RecordingLocalServer();
+      final container = _withLocalServer(api, InMemoryCredentialStore(), local);
+      addTearDown(container.dispose);
+
+      final c = await connect(container);
+      expect(c.status, ConnectionStatus.ready);
+      expect(local.startCalls, 0);
+    });
+
+    test('unreachable loopback starts the server and opens welcome', () async {
+      final api = FakeApiClient();
+      final local = RecordingLocalServer(
+        onStart: () {
+          api.info = serverInfo(state: ServerSetupState.unconfigured);
+        },
+      );
+      final container = _withLocalServer(api, InMemoryCredentialStore(), local);
+      addTearDown(container.dispose);
+
+      final c = await connect(container);
+      expect(c.status, ConnectionStatus.unconfigured);
+      expect(local.startCalls, 1);
+      expect(api.infoCalls, 2);
+      expect(api.joinCalls, 0);
+    });
+
+    test('unreachable loopback continues into auto-join when ready', () async {
+      final api = FakeApiClient();
+      final local = RecordingLocalServer(
+        onStart: () => api.info = serverInfo(),
+      );
+      final container = _withLocalServer(api, InMemoryCredentialStore(), local);
+      addTearDown(container.dispose);
+
+      final c = await connect(container);
+      expect(c.status, ConnectionStatus.ready);
+      expect(local.startCalls, 1);
+      expect(api.infoCalls, 2);
+      expect(api.joinCalls, 1);
+    });
+
+    test('a missing binary keeps the unreachable error', () async {
+      final api = FakeApiClient();
+      final local = RecordingLocalServer(available: false);
+      final container = _withLocalServer(api, InMemoryCredentialStore(), local);
+      addTearDown(container.dispose);
+
+      final c = await connect(container);
+      expect(c.status, ConnectionStatus.unreachable);
+      expect(c.error, contains('127.0.0.1:47320'));
+      expect(local.startCalls, 1);
+      expect(api.infoCalls, 1);
+    });
+
+    test('an unreachable remote address does not start a server', () async {
+      final remote = Uri.parse('http://192.168.1.10:47320');
+      final api = FakeApiClient(baseUri: remote);
+      final local = RecordingLocalServer(
+        onStart: () => api.info = serverInfo(),
+      );
+      final container = _withLocalServer(
+        api,
+        InMemoryCredentialStore(StoredCredentials(serverUri: remote)),
+        local,
+      );
+      addTearDown(container.dispose);
+
+      final c = await connect(container);
+      expect(c.status, ConnectionStatus.unreachable);
+      expect(c.error, contains('192.168.1.10:47320'));
+      expect(local.startCalls, 0);
+    });
+
+    test('a loopback error response does not start a server', () async {
+      final api = FakeApiClient()
+        ..infoError = apiError(500, ApiErrorCodes.internal);
+      final local = RecordingLocalServer();
+      final container = _withLocalServer(api, InMemoryCredentialStore(), local);
+      addTearDown(container.dispose);
+
+      final c = await connect(container);
+      expect(c.status, ConnectionStatus.unreachable);
+      expect(c.error, 'internal');
+      expect(local.startCalls, 0);
+    });
+  });
+}
+
+ProviderContainer _withLocalServer(
+  FakeApiClient api,
+  CredentialStore store,
+  LocalServer local,
+) => makeContainer(
+  api,
+  store,
+  overrides: [localServerProvider.overrideWithValue(local)],
+);
+
+/// Records [LocalServer.start] and never spawns a process.
+class RecordingLocalServer implements LocalServer {
+  RecordingLocalServer({this.onStart, this.available = true});
+
+  final void Function()? onStart;
+
+  /// What [start] returns. False is a missing binary.
+  final bool available;
+
+  int startCalls = 0;
+
+  @override
+  Future<bool> start() async {
+    startCalls++;
+    onStart?.call();
+    return available;
+  }
 }

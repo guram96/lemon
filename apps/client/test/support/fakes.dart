@@ -104,9 +104,14 @@ List<Override> overridesFor(FakeApiClient api, CredentialStore store) => [
   ),
 ];
 
-ProviderContainer makeContainer(FakeApiClient api, CredentialStore store) {
-  final container = ProviderContainer(overrides: overridesFor(api, store));
-  return container;
+ProviderContainer makeContainer(
+  FakeApiClient api,
+  CredentialStore store, {
+  List<Override> overrides = const [],
+}) {
+  return ProviderContainer(
+    overrides: [...overridesFor(api, store), ...overrides],
+  );
 }
 
 /// Lets queued microtasks and zero-delay timers run.

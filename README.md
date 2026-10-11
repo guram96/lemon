@@ -10,7 +10,7 @@ flutter pub get
 dart tool/check.dart
 ```
 
-Build the release macOS client and write `dist/RetroSteam-macos.dmg`:
+Build the release macOS app, with the server bundled inside it, and write `dist/RetroSteam-macos.dmg`. Opening the app starts that server when nothing on this Mac is already answering; quitting the app leaves the server running:
 
 ```sh
 bash tool/macos_dmg.sh

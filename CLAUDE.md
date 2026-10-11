@@ -182,7 +182,7 @@ Runs on **every platform**: macOS, Windows, Linux, Android, and iOS, as the full
 - `RsFocusable` (in `rs_ui`) is the only focus and activation primitive. Every interactive part of every component set uses it, so d-pad, keyboard, mouse, and touch behave the same in every look. It scrolls itself into view when focused.
 - `RsInputScope` maps keys and controller buttons to intents: A/Enter/Space → `ActivateIntent`, B/Esc/Backspace → `RsBackIntent`, Start → `RsMenuIntent`, Select → `RsOptionsIntent`, LB/RB/PageUp/PageDown → `RsTabIntent`. Arrow keys and the d-pad use Flutter's directional focus.
 - Never bind single-letter keys globally, because they would swallow typing in text fields.
-- **(Later)** Desktop gamepad support through a plugin that sends events to the same intents.
+- Desktop gamepad support is M7 (`tasks.md` T50): a plugin that sends events to the same intents.
 
 ### State and navigation
 - **Riverpod 3** (`flutter_riverpod`, plain `Notifier` and `Provider`, no code generation) for state and dependency injection.
@@ -238,5 +238,5 @@ Treat every request as untrusted, even on a home network.
 
 ## Platform notes
 
-- **macOS client:** the app is sandboxed. It has the `network.client` entitlement. Writing downloads to folders the user picks will need security-scoped bookmarks, or the sandbox has to be dropped for the desktop build. Decide this when building downloads.
+- **macOS client:** the desktop build drops the App Sandbox (`tasks.md` T53). Play has to start other apps, downloads go to a folder the user picks, and the app has to start the bundled server. Security-scoped bookmarks are not the plan. The app keeps the `network.client` entitlement.
 - **Bundle IDs** are still the scaffold's `com.example.retro_steam` / `com.example.retroSteam`. Change them before any release.
