@@ -1,0 +1,23 @@
+name: rs_ui_crossblade
+description: Crossblade component set for rs_ui. Xbox 360 blades and the original Xbox green orb glow, over a PS3 XMB wave backdrop.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ^3.13.5
+  flutter: '>=3.47.0'
+resolution: workspace
+
+dependencies:
+  flutter:
+    sdk: flutter
+  rs_theme:
+    path: ../rs_theme
+  rs_ui:
+    path: ../rs_ui
+  rs_ui_steam:
+    path: ../rs_ui_steam
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

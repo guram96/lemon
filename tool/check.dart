@@ -12,6 +12,7 @@ const _packages = {
   'packages/rs_theme': true,
   'packages/rs_ui': true,
   'packages/rs_ui_steam': true,
+  'packages/rs_ui_crossblade': true,
   'apps/server': false,
   'apps/client': true,
 };

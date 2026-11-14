@@ -13,5 +13,6 @@ workspace:
   - packages/rs_theme
   - packages/rs_ui
   - packages/rs_ui_steam
+  - packages/rs_ui_crossblade
 dev_dependencies:
   lints: ^6.1.0

@@ -6,6 +6,7 @@ import 'package:rs_core/rs_core.dart';
 import 'package:rs_theme/rs_theme.dart';
 import 'package:rs_ui/rs_ui.dart';
 
+import '../app/component_set_provider.dart';
 import '../app/theme_settings_provider.dart';
 import '../connection/connection_provider.dart';
 import '../install/download_queue.dart';
@@ -21,7 +22,7 @@ import '../session/session_provider.dart';
 import 'client_settings.dart';
 import 'settings_focus.dart';
 
-/// Display mode and accent. Changes apply immediately.
+/// Look, display mode and accent. Changes apply immediately.
 class InterfaceSettings extends ConsumerWidget {
   const InterfaceSettings({
     super.key,
@@ -35,12 +36,22 @@ class InterfaceSettings extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(themeSettingsProvider);
+    final look = ref.watch(lookProvider);
     return SettingsFocusColumn(
       link: link,
-      length: 2,
+      length: 3,
       onHorizontal: onHorizontal,
       itemBuilder: (context, index, node) {
         if (index == 0) {
+          return RsListRow(
+            focusNode: node,
+            title: 'Look',
+            value: look.displayName,
+            chevron: true,
+            onPressed: () => _pickLook(context, ref),
+          );
+        }
+        if (index == 1) {
           return RsListRow(
             focusNode: node,
             title: 'Display',
@@ -58,6 +69,38 @@ class InterfaceSettings extends ConsumerWidget {
           onPressed: () => _pickAccent(context, ref),
         );
       },
+    );
+  }
+
+  Future<void> _pickLook(BuildContext context, WidgetRef ref) async {
+    final current = ref.read(themeSettingsProvider);
+    final active = ref.read(lookProvider).id;
+    final looks = ref.read(availableLooksProvider);
+    await showRsDialog<void>(
+      context: context,
+      builder: (dialogContext) => RsDialog(
+        title: 'Look',
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final look in looks)
+              RsListRow(
+                title: look.displayName,
+                value: active == look.id ? 'Selected' : null,
+                autofocus: active == look.id,
+                onPressed: () async {
+                  await ref
+                      .read(themeSettingsProvider.notifier)
+                      .update(current.copyWith(look: look.id));
+                  if (dialogContext.mounted) {
+                    Navigator.of(dialogContext).pop();
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -426,9 +469,9 @@ class AccountSettings extends ConsumerWidget {
   }
 }
 
-/// Steam blue first, then a short set of accents.
+/// The look's own accent first, then a short set of accents.
 const accentPresets = <_AccentPreset>[
-  _AccentPreset('Steam blue', RsThemeSettings.defaultAccent),
+  _AccentPreset('Look default', RsThemeSettings.defaultAccent),
   _AccentPreset('Violet', Color(0xFF7B5CFF)),
   _AccentPreset('Green', Color(0xFF3D9B4F)),
   _AccentPreset('Orange', Color(0xFFE08A2C)),

@@ -16,14 +16,15 @@ class RetroSteamApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settings = ref.watch(themeSettingsProvider);
-    final componentSet = ref.watch(componentSetProvider);
+    final look = ref.watch(lookProvider);
+    final componentSet = look.set;
     final router = ref.watch(routerProvider);
 
     return MaterialApp.router(
       title: 'Retro Steam',
       debugShowCheckedModeBanner: false,
-      theme: RsThemeBuilder.light(settings),
-      darkTheme: RsThemeBuilder.dark(settings),
+      theme: look.light(settings),
+      darkTheme: look.dark(settings),
       themeMode: settings.mode,
       routerConfig: router,
       builder: (context, child) => RsComponents(

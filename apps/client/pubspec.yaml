@@ -1,5 +1,5 @@
 name: rs_client
-description: Retro Steam client (Steam Big Picture style).
+description: Retro Steam client (Crossblade and Steam Big Picture looks).
 publish_to: none
 version: 0.1.0+1
 
@@ -23,6 +23,8 @@ dependencies:
     path: ../../packages/rs_theme
   rs_ui:
     path: ../../packages/rs_ui
+  rs_ui_crossblade:
+    path: ../../packages/rs_ui_crossblade
   rs_ui_steam:
     path: ../../packages/rs_ui_steam
   shared_preferences: ^2.5.5

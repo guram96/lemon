@@ -11,6 +11,17 @@ abstract final class RsThemeBuilder {
   static ThemeData dark(RsThemeSettings settings) =>
       _build(Brightness.dark, _darkTokens(settings.accent));
 
+  /// Builds [ThemeData] from a look's own [tokens], for component sets that
+  /// ship their own palette. [textTheme] defaults to the standard one.
+  static ThemeData fromTokens(
+    Brightness brightness,
+    RsTokens tokens, {
+    TextTheme? textTheme,
+  }) => _build(brightness, tokens, textTheme: textTheme);
+
+  /// The standard text theme for [tokens], for sets that want to tweak it.
+  static TextTheme textThemeFor(RsTokens tokens) => _textTheme(tokens);
+
   /// Dark palette modelled on Steam Big Picture mode (2023+ / Steam Deck UI).
   static RsTokens _darkTokens(Color accent) => RsTokens(
     background: const Color(0xFF0E1218),
@@ -111,7 +122,11 @@ abstract final class RsThemeBuilder {
     );
   }
 
-  static ThemeData _build(Brightness brightness, RsTokens t) {
+  static ThemeData _build(
+    Brightness brightness,
+    RsTokens t, {
+    TextTheme? textTheme,
+  }) {
     final scheme =
         ColorScheme.fromSeed(
           seedColor: t.accent,
@@ -127,7 +142,7 @@ abstract final class RsThemeBuilder {
       brightness: brightness,
       colorScheme: scheme,
       scaffoldBackgroundColor: t.background,
-      textTheme: _textTheme(t),
+      textTheme: textTheme ?? _textTheme(t),
       iconTheme: IconThemeData(color: t.textSecondary, size: t.sizes.icon),
       textSelectionTheme: TextSelectionThemeData(
         cursorColor: t.accent,
