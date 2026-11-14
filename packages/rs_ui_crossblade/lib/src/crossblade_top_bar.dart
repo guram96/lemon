@@ -25,11 +25,11 @@ class CrossbladeTopBar extends StatelessWidget {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            t.barBackground,
-            t.barBackground.withValues(alpha: t.barBackground.a * 0.55),
-            t.barBackground.withValues(alpha: 0),
+            t.background,
+            t.background.withValues(alpha: 0.88),
+            t.background.withValues(alpha: 0),
           ],
-          stops: const [0, 0.7, 1],
+          stops: const [0, 0.72, 1],
         ),
       ),
       child: SafeArea(

@@ -5,8 +5,7 @@ import 'package:rs_ui/rs_ui.dart';
 import 'crossblade_style.dart';
 
 /// Crossblade capsule: a glossy jewel case. Focus pops it forward with an
-/// overshoot, rings it in neon green, sweeps a shine across it and slides
-/// up a title plate.
+/// overshoot, rings it in neon green and sweeps a shine across it.
 class CrossbladeGameCard extends StatelessWidget {
   const CrossbladeGameCard(this.config, {super.key, required this.art});
 
@@ -75,7 +74,6 @@ class CrossbladeGameCard extends StatelessWidget {
     final layout = config.layout == RsArtLayout.background
         ? RsArtLayout.cover
         : config.layout;
-    final text = CrossbladeStyle.text(context);
     final hasImage = config.image != null;
     return Stack(
       fit: StackFit.expand,
@@ -109,48 +107,6 @@ class CrossbladeGameCard extends StatelessWidget {
           ),
         ),
         if (hi) _ShineSweep(key: const ValueKey('shine'), tokens: t),
-        // Title plate slides up on focus (generated art already shows it).
-        if (hasImage)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: AnimatedSlide(
-              offset: hi ? Offset.zero : const Offset(0, 1),
-              duration: t.motion.focus,
-              curve: t.motion.curve,
-              child: Container(
-                padding: EdgeInsets.fromLTRB(
-                  t.spacing.sm,
-                  t.spacing.lg,
-                  t.spacing.sm,
-                  t.spacing.sm +
-                      (config.progress != null ? t.sizes.progressHeight : 0),
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      t.art.shade.withValues(alpha: 0),
-                      t.art.shade.withValues(alpha: 0.85),
-                    ],
-                  ),
-                ),
-                child: Text(
-                  config.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: text.labelMedium?.copyWith(
-                    color: t.art.onArt,
-                    fontWeight: FontWeight.w900,
-                    fontStyle: FontStyle.italic,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-              ),
-            ),
-          ),
         if (config.showSystemBadge &&
             hasImage &&
             (config.systemName ?? config.systemId) != null)
