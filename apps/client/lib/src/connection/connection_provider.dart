@@ -151,6 +151,12 @@ class ConnectionNotifier extends Notifier<ServerConnection> {
 
     final store = ref.read(credentialStoreProvider);
     var creds = await store.load();
+    // TEMP (do not commit): debug-only login bypass for a design preview.
+    const devSession = String.fromEnvironment('RS_DEV_SESSION');
+    const devDevice = String.fromEnvironment('RS_DEV_DEVICE');
+    if (kDebugMode && devSession.isNotEmpty && devDevice.isNotEmpty) {
+      creds = creds.copyWith(sessionToken: devSession, deviceToken: devDevice);
+    }
     if (stale()) return;
 
     final uri = address ?? creds.serverUri ?? defaultLocalServerUri;
